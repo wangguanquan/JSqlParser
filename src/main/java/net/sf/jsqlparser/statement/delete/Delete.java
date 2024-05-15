@@ -9,29 +9,90 @@
  */
 package net.sf.jsqlparser.statement.delete;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import static java.util.stream.Collectors.joining;
 import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.OracleHint;
 import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.OutputClause;
+import net.sf.jsqlparser.statement.ReturningClause;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.StatementVisitor;
 import net.sf.jsqlparser.statement.select.Join;
 import net.sf.jsqlparser.statement.select.Limit;
 import net.sf.jsqlparser.statement.select.OrderByElement;
 import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.statement.select.WithItem;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
+
+import static java.util.stream.Collectors.joining;
 
 public class Delete implements Statement {
 
+    private List<WithItem> withItemsList;
     private Table table;
+    private OracleHint oracleHint = null;
     private List<Table> tables;
+    private List<Table> usingList;
     private List<Join> joins;
     private Expression where;
     private Limit limit;
     private List<OrderByElement> orderByElements;
+    private boolean hasFrom = true;
+    private DeleteModifierPriority modifierPriority;
+    private boolean modifierIgnore;
+    private boolean modifierQuick;
+
+    private ReturningClause returningClause;
+    private OutputClause outputClause;
+
+    public OutputClause getOutputClause() {
+        return outputClause;
+    }
+
+    public void setOutputClause(OutputClause outputClause) {
+        this.outputClause = outputClause;
+    }
+
+    public ReturningClause getReturningClause() {
+        return returningClause;
+    }
+
+    public Delete setReturningClause(ReturningClause returningClause) {
+        this.returningClause = returningClause;
+        return this;
+    }
+
+    public List<WithItem> getWithItemsList() {
+        return withItemsList;
+    }
+
+    public void setWithItemsList(List<WithItem> withItemsList) {
+        this.withItemsList = withItemsList;
+    }
+
+    public Delete withWithItemsList(List<WithItem> withItemsList) {
+        this.setWithItemsList(withItemsList);
+        return this;
+    }
+
+    public Delete addWithItemsList(WithItem... withItemsList) {
+        List<WithItem> collection =
+                Optional.ofNullable(getWithItemsList()).orElseGet(ArrayList::new);
+        Collections.addAll(collection, withItemsList);
+        return this.withWithItemsList(collection);
+    }
+
+    public Delete addWithItemsList(Collection<? extends WithItem> withItemsList) {
+        List<WithItem> collection =
+                Optional.ofNullable(getWithItemsList()).orElseGet(ArrayList::new);
+        collection.addAll(withItemsList);
+        return this.withWithItemsList(collection);
+    }
 
     public List<OrderByElement> getOrderByElements() {
         return orderByElements;
@@ -62,6 +123,14 @@ public class Delete implements Statement {
         where = expression;
     }
 
+    public OracleHint getOracleHint() {
+        return oracleHint;
+    }
+
+    public void setOracleHint(OracleHint oracleHint) {
+        this.oracleHint = oracleHint;
+    }
+
     public Limit getLimit() {
         return limit;
     }
@@ -78,6 +147,14 @@ public class Delete implements Statement {
         this.tables = tables;
     }
 
+    public List<Table> getUsingList() {
+        return usingList;
+    }
+
+    public void setUsingList(List<Table> usingList) {
+        this.usingList = usingList;
+    }
+
     public List<Join> getJoins() {
         return joins;
     }
@@ -86,19 +163,67 @@ public class Delete implements Statement {
         this.joins = joins;
     }
 
+    public boolean isHasFrom() {
+        return this.hasFrom;
+    }
+
+    public void setHasFrom(boolean hasFrom) {
+        this.hasFrom = hasFrom;
+    }
+
     @Override
+    @SuppressWarnings({"PMD.CyclomaticComplexity", "PMD.NPathComplexity"})
     public String toString() {
-        StringBuilder b = new StringBuilder("DELETE");
+        StringBuilder b = new StringBuilder();
+        if (withItemsList != null && !withItemsList.isEmpty()) {
+            b.append("WITH ");
+            for (Iterator<WithItem> iter = withItemsList.iterator(); iter.hasNext();) {
+                WithItem withItem = iter.next();
+                b.append(withItem);
+                if (iter.hasNext()) {
+                    b.append(",");
+                }
+                b.append(" ");
+            }
+        }
+
+        b.append("DELETE");
+        if (oracleHint != null) {
+            b.append(oracleHint).append(" ");
+        }
+        if (modifierPriority != null) {
+            b.append(" ").append(modifierPriority.name());
+        }
+        if (modifierQuick) {
+            b.append(" QUICK");
+        }
+        if (modifierIgnore) {
+            b.append(" IGNORE");
+        }
 
         if (tables != null && tables.size() > 0) {
             b.append(" ");
             b.append(tables.stream()
-                    .map(t -> t.toString())
+                    .map(Table::toString)
                     .collect(joining(", ")));
         }
 
-        b.append(" FROM ");
-        b.append(table);
+        if (outputClause != null) {
+            outputClause.appendTo(b);
+        }
+
+
+        if (hasFrom) {
+            b.append(" FROM");
+        }
+        b.append(" ").append(table);
+
+        if (usingList != null && usingList.size() > 0) {
+            b.append(" USING ");
+            b.append(usingList.stream()
+                    .map(Table::toString)
+                    .collect(joining(", ")));
+        }
 
         if (joins != null) {
             for (Join join : joins) {
@@ -121,11 +246,21 @@ public class Delete implements Statement {
         if (limit != null) {
             b.append(limit);
         }
+
+        if (returningClause != null) {
+            returningClause.appendTo(b);
+        }
+
         return b.toString();
     }
 
     public Delete withTables(List<Table> tables) {
         this.setTables(tables);
+        return this;
+    }
+
+    public Delete withUsingList(List<Table> usingList) {
+        this.setUsingList(usingList);
         return this;
     }
 
@@ -154,6 +289,50 @@ public class Delete implements Statement {
         return this;
     }
 
+    public Delete withHasFrom(boolean hasFrom) {
+        this.setHasFrom(hasFrom);
+        return this;
+    }
+
+    public Delete withModifierPriority(DeleteModifierPriority modifierPriority) {
+        this.setModifierPriority(modifierPriority);
+        return this;
+    }
+
+    public Delete withModifierIgnore(boolean modifierIgnore) {
+        this.setModifierIgnore(modifierIgnore);
+        return this;
+    }
+
+    public Delete withModifierQuick(boolean modifierQuick) {
+        this.setModifierQuick(modifierQuick);
+        return this;
+    }
+
+    public void setModifierPriority(DeleteModifierPriority modifierPriority) {
+        this.modifierPriority = modifierPriority;
+    }
+
+    public DeleteModifierPriority getModifierPriority() {
+        return modifierPriority;
+    }
+
+    public void setModifierIgnore(boolean modifierIgnore) {
+        this.modifierIgnore = modifierIgnore;
+    }
+
+    public void setModifierQuick(boolean modifierQuick) {
+        this.modifierQuick = modifierQuick;
+    }
+
+    public boolean isModifierIgnore() {
+        return modifierIgnore;
+    }
+
+    public boolean isModifierQuick() {
+        return modifierQuick;
+    }
+
     public Delete addTables(Table... tables) {
         List<Table> collection = Optional.ofNullable(getTables()).orElseGet(ArrayList::new);
         Collections.addAll(collection, tables);
@@ -164,6 +343,18 @@ public class Delete implements Statement {
         List<Table> collection = Optional.ofNullable(getTables()).orElseGet(ArrayList::new);
         collection.addAll(tables);
         return this.withTables(collection);
+    }
+
+    public Delete addUsingList(Table... usingList) {
+        List<Table> collection = Optional.ofNullable(getUsingList()).orElseGet(ArrayList::new);
+        Collections.addAll(collection, usingList);
+        return this.withUsingList(collection);
+    }
+
+    public Delete addUsingList(Collection<? extends Table> usingList) {
+        List<Table> collection = Optional.ofNullable(getUsingList()).orElseGet(ArrayList::new);
+        collection.addAll(usingList);
+        return this.withUsingList(collection);
     }
 
     public Delete addJoins(Join... joins) {
@@ -179,13 +370,15 @@ public class Delete implements Statement {
     }
 
     public Delete addOrderByElements(OrderByElement... orderByElements) {
-        List<OrderByElement> collection = Optional.ofNullable(getOrderByElements()).orElseGet(ArrayList::new);
+        List<OrderByElement> collection =
+                Optional.ofNullable(getOrderByElements()).orElseGet(ArrayList::new);
         Collections.addAll(collection, orderByElements);
         return this.withOrderByElements(collection);
     }
 
     public Delete addOrderByElements(Collection<? extends OrderByElement> orderByElements) {
-        List<OrderByElement> collection = Optional.ofNullable(getOrderByElements()).orElseGet(ArrayList::new);
+        List<OrderByElement> collection =
+                Optional.ofNullable(getOrderByElements()).orElseGet(ArrayList::new);
         collection.addAll(orderByElements);
         return this.withOrderByElements(collection);
     }

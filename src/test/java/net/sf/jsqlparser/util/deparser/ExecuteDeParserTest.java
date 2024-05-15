@@ -9,20 +9,21 @@
  */
 package net.sf.jsqlparser.util.deparser;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.mock;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.JdbcParameter;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.expression.operators.relational.ParenthesedExpressionList;
+import net.sf.jsqlparser.statement.execute.Execute;
+import net.sf.jsqlparser.statement.execute.Execute.ExecType;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.Before;
-import org.junit.Test;
-import net.sf.jsqlparser.expression.Expression;
-import net.sf.jsqlparser.expression.JdbcParameter;
-import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
-import net.sf.jsqlparser.statement.execute.Execute;
-import net.sf.jsqlparser.statement.execute.Execute.EXEC_TYPE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 
 public class ExecuteDeParserTest {
 
@@ -31,7 +32,7 @@ public class ExecuteDeParserTest {
 
     private StringBuilder buffer;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         buffer = new StringBuilder();
         expressionVisitor = new ExpressionDeParser();
@@ -44,13 +45,13 @@ public class ExecuteDeParserTest {
         Execute execute = new Execute();
         String name = "name";
 
-        List<Expression> expressions = new ArrayList<>();
+        ParenthesedExpressionList expressions = new ParenthesedExpressionList();
         expressions.add(new JdbcParameter());
         expressions.add(new JdbcParameter());
 
         execute.withName(name)
-        .withExecType(EXEC_TYPE.EXECUTE).withParenthesis(true)
-        .withExprList(new ExpressionList().withExpressions(expressions));
+                .withExecType(ExecType.EXECUTE)
+                .withExprList(expressions);
 
         executeDeParser.deParse(execute);
 

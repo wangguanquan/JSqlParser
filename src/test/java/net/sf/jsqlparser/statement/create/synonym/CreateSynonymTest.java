@@ -11,10 +11,11 @@ package net.sf.jsqlparser.statement.create.synonym;
 
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
-import org.assertj.core.api.Assertions;
-import org.junit.Test;
-
+import net.sf.jsqlparser.schema.Synonym;
 import static net.sf.jsqlparser.test.TestUtils.assertSqlCanBeParsedAndDeparsed;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 public class CreateSynonymTest {
 
@@ -47,9 +48,12 @@ public class CreateSynonymTest {
     public void synonymAttributes() throws Exception {
         final CreateSynonym createSynonym = (CreateSynonym) CCJSqlParserUtil.parse("CREATE OR REPLACE PUBLIC SYNONYM TBL_TABLE_NAME FOR SCHEMA.T_TBL_NAME");
 
-        Assertions.assertThat(createSynonym.isOrReplace()).isTrue();
-        Assertions.assertThat(createSynonym.isPublicSynonym()).isTrue();
-        Assertions.assertThat(createSynonym.getSynonym().getFullyQualifiedName()).isEqualTo("TBL_TABLE_NAME");
-        Assertions.assertThat(createSynonym.getFor()).isEqualTo("SCHEMA.T_TBL_NAME");
+        assertThat(createSynonym.isOrReplace()).isTrue();
+        assertThat(createSynonym.isPublicSynonym()).isTrue();
+        assertThat(createSynonym.getSynonym().getFullyQualifiedName()).isEqualTo("TBL_TABLE_NAME");
+        assertThat(createSynonym.getFor()).isEqualTo("SCHEMA.T_TBL_NAME");
+
+        assertEquals(2, createSynonym.getForList().size());
+        assertEquals("NEW_TBL_TABLE_NAME", createSynonym.withSynonym(new Synonym().withName("NEW_TBL_TABLE_NAME")).getSynonym().getName());
     }
 }

@@ -13,27 +13,27 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.UUID;
-import org.junit.Before;
-import org.junit.Test;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.util.validation.ValidationTestAsserts;
 import net.sf.jsqlparser.util.validation.feature.DatabaseType;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class DatabaseMetaDataValidationTest extends ValidationTestAsserts {
 
     private Connection connection;
     private String databaseName;
 
-    @Before
+    @BeforeEach
     public void setupDatabase() throws SQLException {
         databaseName = "testdb_" + Math.abs(UUID.randomUUID().hashCode());
         connection = DriverManager.getConnection("jdbc:h2:mem:" + databaseName);
         connection
-        .prepareStatement(
-                "CREATE TABLE mytable (id bigint, ref bigint, description varchar(100), active boolean);")
-        .execute();
+                .prepareStatement(
+                        "CREATE TABLE mytable (id bigint, ref bigint, description varchar(100), active boolean);")
+                .execute();
         connection.prepareStatement("CREATE TABLE mysecondtable (id bigint, description varchar(100), active boolean);")
-        .execute();
+                .execute();
         connection.prepareStatement("CREATE VIEW myview AS SELECT * FROM mytable").execute();
     }
 
@@ -106,7 +106,6 @@ public class DatabaseMetaDataValidationTest extends ValidationTestAsserts {
         validateNoErrors(sql, 1, DatabaseType.H2, meta.clearCache());
     }
 
-
     @Test
     public void testValidationDropView3Parts() throws JSQLParserException, SQLException {
         String sql = String.format("DROP VIEW %s.public.myview", databaseName);
@@ -132,4 +131,10 @@ public class DatabaseMetaDataValidationTest extends ValidationTestAsserts {
         validateMetadata(sql, 1, 1, meta, true, String.format("public.anotherView", databaseName));
     }
 
+    @Test
+    public void testValidationMetadataSelectWithColumnsAndAlias2() throws JSQLParserException, SQLException {
+        String sql = "select my.id from mytable as my";
+        JdbcDatabaseMetaDataCapability meta = new JdbcDatabaseMetaDataCapability(connection, NamesLookup.UPPERCASE);
+        validateNoErrors(sql, 1, DatabaseType.H2, meta); // no errors
+    }
 }

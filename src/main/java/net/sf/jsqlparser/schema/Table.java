@@ -20,6 +20,7 @@ import net.sf.jsqlparser.statement.select.FromItem;
 import net.sf.jsqlparser.statement.select.FromItemVisitor;
 import net.sf.jsqlparser.statement.select.IntoTableVisitor;
 import net.sf.jsqlparser.statement.select.Pivot;
+import net.sf.jsqlparser.statement.select.SampleClause;
 import net.sf.jsqlparser.statement.select.UnPivot;
 
 /**
@@ -40,7 +41,11 @@ public class Table extends ASTNodeAccessImpl implements FromItem, MultiPartName 
 
     private List<String> partItems = new ArrayList<>();
 
+    private List<String> partDelimiters = new ArrayList<>();
+
     private Alias alias;
+
+    private SampleClause sampleClause;
 
     private Pivot pivot;
 
@@ -50,8 +55,7 @@ public class Table extends ASTNodeAccessImpl implements FromItem, MultiPartName 
 
     private SQLServerHints sqlServerHints;
 
-    public Table() {
-    }
+    public Table() {}
 
     public Table(String name) {
         setName(name);
@@ -71,6 +75,17 @@ public class Table extends ASTNodeAccessImpl implements FromItem, MultiPartName 
     public Table(List<String> partItems) {
         this.partItems = new ArrayList<>(partItems);
         Collections.reverse(this.partItems);
+    }
+
+    public Table(List<String> partItems, List<String> partDelimiters) {
+        if (partDelimiters.size() != partItems.size() - 1) {
+            throw new IllegalArgumentException(
+                    "the length of the delimiters list must be 1 less than nameParts");
+        }
+        this.partItems = new ArrayList<>(partItems);
+        this.partDelimiters = new ArrayList<>(partDelimiters);
+        Collections.reverse(this.partItems);
+        Collections.reverse(this.partDelimiters);
     }
 
     public Database getDatabase() {
@@ -103,7 +118,25 @@ public class Table extends ASTNodeAccessImpl implements FromItem, MultiPartName 
     }
 
     public String getName() {
-        return getIndex(NAME_IDX);
+        String name = getIndex(NAME_IDX);
+        if (name != null && name.contains("@")) {
+            int pos = name.lastIndexOf('@');
+            if (pos > 0) {
+                name = name.substring(0, pos);
+            }
+        }
+        return name;
+    }
+
+    public String getDBLinkName() {
+        String name = getIndex(NAME_IDX);
+        if (name != null && name.contains("@")) {
+            int pos = name.lastIndexOf('@');
+            if (pos > 0 && name.length() > 1) {
+                name = name.substring(pos + 1);
+            }
+        }
+        return name;
     }
 
     public Table withName(String name) {
@@ -157,7 +190,7 @@ public class Table extends ASTNodeAccessImpl implements FromItem, MultiPartName 
             }
             fqn.append(part);
             if (i != 0) {
-                fqn.append(".");
+                fqn.append(partDelimiters.isEmpty() ? "." : partDelimiters.get(i - 1));
             }
         }
 
@@ -214,12 +247,46 @@ public class Table extends ASTNodeAccessImpl implements FromItem, MultiPartName 
         this.sqlServerHints = sqlServerHints;
     }
 
+    public SampleClause getSampleClause() {
+        return sampleClause;
+    }
+
+    public Table setSampleClause(SampleClause sampleClause) {
+        this.sampleClause = sampleClause;
+        return this;
+    }
+
+    public StringBuilder appendTo(StringBuilder builder) {
+        builder.append(getFullyQualifiedName());
+        if (alias != null) {
+            builder.append(alias);
+        }
+
+        if (sampleClause != null) {
+            sampleClause.appendTo(builder);
+        }
+
+        if (pivot != null) {
+            builder.append(" ").append(pivot);
+        }
+
+        if (unpivot != null) {
+            builder.append(" ").append(unpivot);
+        }
+
+        if (mysqlHints != null) {
+            builder.append(mysqlHints);
+        }
+
+        if (sqlServerHints != null) {
+            builder.append(sqlServerHints);
+        }
+        return builder;
+    }
+
     @Override
     public String toString() {
-        return getFullyQualifiedName() + ((alias != null) ? alias.toString() : "")
-                + ((pivot != null) ? " " + pivot : "") + ((unpivot != null) ? " " + unpivot : "")
-                + ((mysqlHints != null) ? mysqlHints.toString() : "")
-                + ((sqlServerHints != null) ? sqlServerHints.toString() : "");
+        return appendTo(new StringBuilder()).toString();
     }
 
     @Override
@@ -240,5 +307,13 @@ public class Table extends ASTNodeAccessImpl implements FromItem, MultiPartName 
     public Table withSqlServerHints(SQLServerHints sqlServerHints) {
         this.setSqlServerHints(sqlServerHints);
         return this;
+    }
+
+    public List<String> getNameParts() {
+        return partItems;
+    }
+
+    public List<String> getNamePartDelimiters() {
+        return partDelimiters;
     }
 }

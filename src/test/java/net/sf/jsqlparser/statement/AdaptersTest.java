@@ -19,11 +19,11 @@ import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectVisitorAdapter;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Stack;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AdaptersTest {
 
@@ -35,33 +35,32 @@ public class AdaptersTest {
         String sql = "SELECT * FROM MYTABLE WHERE COLUMN_A = :paramA AND COLUMN_B <> :paramB";
         Statement stmnt = CCJSqlParserUtil.parse(sql);
 
-        final Stack<Pair<String, String>> params = new Stack<Pair<String, String>>();
+        final Stack<Pair<String, String>> params = new Stack<>();
         stmnt.accept(new StatementVisitorAdapter() {
             @Override
             public void visit(Select select) {
-                select.getSelectBody().accept(new SelectVisitorAdapter() {
+                select.accept(new SelectVisitorAdapter() {
                     @Override
                     public void visit(PlainSelect plainSelect) {
                         plainSelect.getWhere().accept(new ExpressionVisitorAdapter() {
                             @Override
                             protected void visitBinaryExpression(BinaryExpression expr) {
                                 if (!(expr instanceof AndExpression)) {
-                                    params.push(new Pair<String, String>(null, null));
+                                    params.push(new Pair<>(null, null));
                                 }
                                 super.visitBinaryExpression(expr);
                             }
 
                             @Override
                             public void visit(Column column) {
-                                params.push(new Pair<String, String>(column.getColumnName(), params.
-                                        pop().getRight()));
+                                params.push(new Pair<>(column.getColumnName(),
+                                        params.pop().getRight()));
                             }
 
                             @Override
                             public void visit(JdbcNamedParameter parameter) {
-                                params.
-                                        push(new Pair<String, String>(params.pop().getLeft(), parameter.
-                                                getName()));
+                                params.push(new Pair<>(params.pop().getLeft(),
+                                        parameter.getName()));
                             }
                         });
                     }
@@ -106,11 +105,10 @@ public class AdaptersTest {
 
         @Override
         public String toString() {
-            final StringBuilder sb = new StringBuilder("Pair{");
-            sb.append("left=").append(left);
-            sb.append(", right=").append(right);
-            sb.append('}');
-            return sb.toString();
+            String sb = "Pair{" + "left=" + left +
+                    ", right=" + right +
+                    '}';
+            return sb;
         }
     }
 }

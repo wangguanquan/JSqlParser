@@ -9,45 +9,58 @@
  */
 package net.sf.jsqlparser.statement.select;
 
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.expression.operators.relational.ParenthesedExpressionList;
 
-public class GroupByElement {
+public class GroupByElement implements Serializable {
+    private ExpressionList groupByExpressions = new ExpressionList();
+    private List<ExpressionList> groupingSets = new ArrayList<>();
+    // postgres rollup is an ExpressionList
+    private boolean mysqlWithRollup = false;
 
-    private List<Expression> groupByExpressions = new ArrayList<>();
-    private List groupingSets = new ArrayList();
+    public boolean isUsingBrackets() {
+        return groupByExpressions.isUsingBrackets();
+    }
 
     public void accept(GroupByVisitor groupByVisitor) {
         groupByVisitor.visit(this);
     }
 
-    public List<Expression> getGroupByExpressions() {
+    public ExpressionList getGroupByExpressionList() {
         return groupByExpressions;
     }
 
-    public void setGroupByExpressions(List<Expression> groupByExpressions) {
+    public void setGroupByExpressions(ExpressionList groupByExpressions) {
         this.groupByExpressions = groupByExpressions;
     }
 
-    public void addGroupByExpression(Expression groupByExpression) {
-        groupByExpressions.add(groupByExpression);
+    @Deprecated
+    public ExpressionList getGroupByExpressions() {
+        return groupByExpressions;
     }
 
-    public List getGroupingSets() {
+    @Deprecated
+    public void addGroupByExpression(Expression groupByExpression) {
+        if (groupByExpressions.getExpressions() == null) {
+            groupByExpressions.setExpressions(new ArrayList());
+        }
+        groupByExpressions.getExpressions().add(groupByExpression);
+    }
+
+    public List<ExpressionList> getGroupingSets() {
         return groupingSets;
     }
 
-    public void setGroupingSets(List groupingSets) {
+    public void setGroupingSets(List<ExpressionList> groupingSets) {
         this.groupingSets = groupingSets;
-    }
-
-    public void addGroupingSet(Expression expr) {
-        this.groupingSets.add(expr);
     }
 
     public void addGroupingSet(ExpressionList list) {
@@ -55,35 +68,37 @@ public class GroupByElement {
     }
 
     @Override
+    @SuppressWarnings({"PMD.CyclomaticComplexity"})
     public String toString() {
         StringBuilder b = new StringBuilder();
         b.append("GROUP BY ");
 
-        if (groupByExpressions.size() > 0) {
-            b.append(PlainSelect.getStringList(groupByExpressions));
-        } else if (groupingSets.size() > 0) {
+        if (groupByExpressions != null) {
+            b.append(groupByExpressions.toString());
+        }
+
+        int i = 0;
+        if (groupingSets.size() > 0) {
+            if (b.charAt(b.length() - 1) != ' ') {
+                b.append(' ');
+            }
             b.append("GROUPING SETS (");
-            boolean first = true;
-            for (Object o : groupingSets) {
-                if (first) {
-                    first = false;
-                } else {
-                    b.append(", ");
-                }
-                if (o instanceof Expression) {
-                    b.append(o.toString());
-                } else if (o instanceof ExpressionList) {
-                    ExpressionList list = (ExpressionList) o;
-                    b.append(list.getExpressions() == null ? "()" : list.toString());
-                }
+            for (ExpressionList expressionList : groupingSets) {
+                b.append(i++ > 0 ? ", " : "").append(Select.getStringList(
+                        expressionList,
+                        true, expressionList instanceof ParenthesedExpressionList));
             }
             b.append(")");
+        }
+
+        if (isMysqlWithRollup()) {
+            b.append(" WITH ROLLUP");
         }
 
         return b.toString();
     }
 
-    public GroupByElement withGroupByExpressions(List<Expression> groupByExpressions) {
+    public GroupByElement withGroupByExpressions(ExpressionList groupByExpressions) {
         this.setGroupByExpressions(groupByExpressions);
         return this;
     }
@@ -94,14 +109,14 @@ public class GroupByElement {
     }
 
     public GroupByElement addGroupByExpressions(Expression... groupByExpressions) {
-        List<Expression> collection = Optional.ofNullable(getGroupByExpressions()).orElseGet(ArrayList::new);
-        Collections.addAll(collection, groupByExpressions);
-        return this.withGroupByExpressions(collection);
+        return this.addGroupByExpressions(Arrays.asList(groupByExpressions));
     }
 
-    public GroupByElement addGroupByExpressions(Collection<? extends Expression> groupByExpressions) {
-        List<Expression> collection = Optional.ofNullable(getGroupByExpressions()).orElseGet(ArrayList::new);
-        collection.addAll(groupByExpressions);
+    public GroupByElement addGroupByExpressions(
+            Collection<? extends Expression> groupByExpressions) {
+        ExpressionList collection =
+                Optional.ofNullable(getGroupByExpressions()).orElseGet(ExpressionList::new);
+        Collections.addAll(collection, groupByExpressions);
         return this.withGroupByExpressions(collection);
     }
 
@@ -115,5 +130,14 @@ public class GroupByElement {
         List collection = Optional.ofNullable(getGroupingSets()).orElseGet(ArrayList::new);
         collection.addAll(groupingSets);
         return this.withGroupingSets(collection);
+    }
+
+    public boolean isMysqlWithRollup() {
+        return mysqlWithRollup;
+    }
+
+    public GroupByElement setMysqlWithRollup(boolean mysqlWithRollup) {
+        this.mysqlWithRollup = mysqlWithRollup;
+        return this;
     }
 }

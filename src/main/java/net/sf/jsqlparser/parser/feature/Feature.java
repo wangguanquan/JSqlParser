@@ -21,18 +21,21 @@ import net.sf.jsqlparser.statement.CreateFunctionalStatement;
 import net.sf.jsqlparser.statement.DeclareStatement;
 import net.sf.jsqlparser.statement.DescribeStatement;
 import net.sf.jsqlparser.statement.ExplainStatement;
+import net.sf.jsqlparser.statement.ResetStatement;
 import net.sf.jsqlparser.statement.SetStatement;
 import net.sf.jsqlparser.statement.ShowColumnsStatement;
 import net.sf.jsqlparser.statement.ShowStatement;
 import net.sf.jsqlparser.statement.UseStatement;
 import net.sf.jsqlparser.statement.alter.Alter;
 import net.sf.jsqlparser.statement.alter.sequence.AlterSequence;
+import net.sf.jsqlparser.statement.analyze.Analyze;
 import net.sf.jsqlparser.statement.comment.Comment;
 import net.sf.jsqlparser.statement.create.function.CreateFunction;
 import net.sf.jsqlparser.statement.create.index.CreateIndex;
 import net.sf.jsqlparser.statement.create.procedure.CreateProcedure;
 import net.sf.jsqlparser.statement.create.schema.CreateSchema;
 import net.sf.jsqlparser.statement.create.sequence.CreateSequence;
+import net.sf.jsqlparser.statement.create.synonym.CreateSynonym;
 import net.sf.jsqlparser.statement.create.table.CreateTable;
 import net.sf.jsqlparser.statement.create.view.AlterView;
 import net.sf.jsqlparser.statement.create.view.CreateView;
@@ -41,7 +44,7 @@ import net.sf.jsqlparser.statement.drop.Drop;
 import net.sf.jsqlparser.statement.execute.Execute;
 import net.sf.jsqlparser.statement.grant.Grant;
 import net.sf.jsqlparser.statement.merge.Merge;
-import net.sf.jsqlparser.statement.replace.Replace;
+import net.sf.jsqlparser.statement.refresh.RefreshMaterializedViewStatement;
 import net.sf.jsqlparser.statement.select.Fetch;
 import net.sf.jsqlparser.statement.select.First;
 import net.sf.jsqlparser.statement.select.KSQLWindow;
@@ -50,17 +53,14 @@ import net.sf.jsqlparser.statement.select.Offset;
 import net.sf.jsqlparser.statement.select.OptimizeFor;
 import net.sf.jsqlparser.statement.select.Pivot;
 import net.sf.jsqlparser.statement.select.PivotXml;
-import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import net.sf.jsqlparser.statement.select.Skip;
 import net.sf.jsqlparser.statement.select.TableFunction;
 import net.sf.jsqlparser.statement.select.Top;
 import net.sf.jsqlparser.statement.select.UnPivot;
-import net.sf.jsqlparser.statement.select.ValuesList;
-import net.sf.jsqlparser.statement.show.ShowTablesStatement;
+import net.sf.jsqlparser.statement.show.*;
 import net.sf.jsqlparser.statement.truncate.Truncate;
 import net.sf.jsqlparser.statement.update.Update;
 import net.sf.jsqlparser.statement.upsert.Upsert;
-import net.sf.jsqlparser.statement.values.ValuesStatement;
 
 public enum Feature {
 
@@ -110,6 +110,7 @@ public enum Feature {
     limitOffset,
     /**
      * "OFFSET offset"
+     * 
      * @see Offset
      */
     offset,
@@ -126,12 +127,12 @@ public enum Feature {
     fetch,
     /**
      * "FETCH FIRST row_count (ROW | ROWS) ONLY"
+     * 
      * @see Fetch#isFetchParamFirst()
      */
     fetchFirst,
     /**
-     * "FETCH NEXT row_count (ROW | ROWS) ONLY"
-     * if not {@link #fetchFirst}
+     * "FETCH NEXT row_count (ROW | ROWS) ONLY" if not {@link #fetchFirst}
      *
      * @see Fetch#isFetchParamFirst()
      */
@@ -190,8 +191,7 @@ public enum Feature {
      */
     joinApply,
 
-    joinWindow,
-    joinUsingColumns,
+    joinWindow, joinUsingColumns,
 
     /**
      * "SKIP variable" | "SKIP ?" | "SKIP rowCount"
@@ -200,9 +200,7 @@ public enum Feature {
      */
     skip,
     /**
-     * "FIRST" \?|[0-9]+|variable
-     * or
-     * "LIMIT" \?|[0-9]+|variable
+     * "FIRST" \?|[0-9]+|variable or "LIMIT" \?|[0-9]+|variable
      *
      * @see First
      */
@@ -246,6 +244,22 @@ public enum Feature {
      * "FOR UPDATE"
      */
     selectForUpdate,
+
+    /**
+     * "FOR SHARE"
+     */
+    selectForShare,
+
+    /**
+     * "FOR KEY SHARE"
+     */
+    selectForKeyShare,
+
+    /**
+     * "NO KEY UPDATE"
+     */
+    selectForNoKeyUpdate,
+
     /**
      * "FOR UPDATE OF table"
      */
@@ -258,6 +272,10 @@ public enum Feature {
      * "FOR UPDATE NOWAIT"
      */
     selectForUpdateNoWait,
+    /**
+     * "FOR UPDATE SKIP LOCKED"
+     */
+    selectForUpdateSkipLocked,
 
 
     /**
@@ -291,7 +309,7 @@ public enum Feature {
     /**
      * "RETURNING expr(, expr)*"
      *
-     * @see SelectExpressionItem
+     * @see net.sf.jsqlparser.expression.operators.relational.ExpressionList
      */
     insertReturningExpressionList,
 
@@ -300,9 +318,14 @@ public enum Feature {
      */
     insertValues,
     /**
-     * @see ValuesStatement
+     * @see net.sf.jsqlparser.statement.select.Values
      */
     values,
+
+    /**
+     * SQL "TABLE table_name [ORDER BY column_name] [LIMIT number [OFFSET number]]“
+     */
+    tableStatement,
 
     /**
      * SQL "UPDATE" statement is allowed
@@ -321,9 +344,12 @@ public enum Feature {
     /**
      * UPDATE table SET (col, ...) = (SELECT col, ... )"
      */
-    updateUseSelect,
-    updateOrderBy,
-    updateLimit,
+    updateUseSelect, updateOrderBy, updateLimit,
+    /**
+     * "RETURNING expr(, expr)*"
+     *
+     * @see net.sf.jsqlparser.statement.select.SelectItem
+     */
     updateReturning,
     /**
      * SQL "DELETE" statement is allowed
@@ -347,6 +373,12 @@ public enum Feature {
      * "ORDER BY ..."
      */
     deleteOrderBy,
+    /**
+     * "RETURNING expr(, expr)*"
+     *
+     * @see net.sf.jsqlparser.statement.select.SelectItem
+     */
+    deleteReturningExpressionList,
 
     /**
      * SQL "UPSERT" statement is allowed
@@ -381,6 +413,14 @@ public enum Feature {
      * @see AlterView
      */
     alterView,
+
+    /**
+     * SQL "REFRESH MATERIALIZED VIEW" statement is allowed
+     *
+     * @see RefreshMaterializedViewStatement
+     */
+    refreshMaterializedView, refreshMaterializedWithDataView, refreshMaterializedWithNoDataView,
+
     /**
      * SQL "REPLACE VIEW" statement is allowed
      *
@@ -391,6 +431,14 @@ public enum Feature {
      * SQL "ALTER INDEX" statement is allowed
      */
     alterIndex,
+
+
+    /**
+     * SQL "ANALYZE" statement is allowed
+     *
+     * @see Analyze
+     */
+    analyze,
 
     /**
      * SQL "TRUNCATE" statement is allowed
@@ -403,8 +451,7 @@ public enum Feature {
      *
      * @see Execute
      */
-    execute,
-    executeExec, executeCall, executeExecute,
+    execute, executeExec, executeCall, executeExecute,
 
     /**
      * SQL "EXECUTE" statement is allowed
@@ -419,21 +466,15 @@ public enum Feature {
     /**
      * SQL "REPLACE" statement is allowed
      *
-     * @see Replace
      */
+    @Deprecated
     replace,
     /**
      * SQL "DROP" statement is allowed
      *
      * @see Drop
      */
-    drop,
-    dropTable,
-    dropIndex,
-    dropView,
-    dropSchema,
-    dropSequence,
-    dropTableIfExists, dropIndexIfExists, dropViewIfExists, dropSchemaIfExists, dropSequenceIfExists,
+    drop, dropTable, dropIndex, dropView, dropSchema, dropSequence, dropTableIfExists, dropIndexIfExists, dropViewIfExists, dropSchemaIfExists, dropSequenceIfExists,
 
     /**
      * SQL "CREATE SCHEMA" statement is allowed
@@ -463,6 +504,12 @@ public enum Feature {
      * SQL "CREATE MATERIALIZED VIEW" statement is allowed
      */
     createViewMaterialized,
+
+    /**
+     * SQL "CREATE VIEW(x comment 'x', y comment 'y') comment 'view'" statement is allowed
+     */
+    createViewWithComment,
+
     /**
      * SQL "CREATE TABLE" statement is allowed
      *
@@ -490,7 +537,7 @@ public enum Feature {
      */
     createTableRowMovement,
     /**
-     * "CREATE TABLE (colspec) SELECT ... 
+     * "CREATE TABLE (colspec) SELECT ...
      */
     createTableFromSelect,
     /**
@@ -546,6 +593,14 @@ public enum Feature {
      * @see DescribeStatement
      */
     describe,
+
+    /**
+     * SQL "DESC" statement is allowed
+     *
+     * @see DescribeStatement
+     */
+    desc,
+
     /**
      * SQL "EXPLAIN" statement is allowed
      *
@@ -564,6 +619,10 @@ public enum Feature {
      * @see ShowColumnsStatement
      */
     showColumns,
+    /**
+     * @see ShowIndexStatement
+     */
+    showIndex,
     /**
      * @see UseStatement
      */
@@ -602,7 +661,10 @@ public enum Feature {
      * @see SetStatement
      */
     set,
-
+    /**
+     * @see ResetStatement
+     */
+    reset,
     /**
      * @see Pivot
      */
@@ -616,21 +678,16 @@ public enum Feature {
      */
     pivotXml,
 
-    setOperation,
-    setOperationUnion,
-    setOperationIntersect,
-    setOperationExcept,
-    setOperationMinus,
+    setOperation, setOperationUnion, setOperationIntersect, setOperationExcept, setOperationMinus,
 
     /**
      * "WITH name query"
      */
-    withItem,
-    withItemRecursive,
+    withItem, withItemRecursive,
 
     lateralSubSelect,
     /**
-     * @see ValuesList
+     * @see net.sf.jsqlparser.statement.select.Values
      */
     valuesList,
     /**
@@ -688,14 +745,11 @@ public enum Feature {
      *
      * @see OracleHierarchicalExpression
      */
-    oracleHierarchicalExpression,
-    oracleOrderBySiblings,
+    oracleHierarchicalExpression, oracleOrderBySiblings,
 
     // MYSQL
 
-    mySqlHintStraightJoin,
-    mysqlSqlNoCache,
-    mysqlCalcFoundRows,
+    mySqlHintStraightJoin, mysqlSqlCacheFlag, mysqlCalcFoundRows,
 
     // SQLSERVER
 
@@ -709,15 +763,39 @@ public enum Feature {
      */
     allowSquareBracketQuotation(false),
 
-    ;
+    /**
+     * allow parsing of RDBMS specific syntax by switching off SQL Standard Compliant Syntax
+     */
+    allowPostgresSpecificSyntax(false),
 
-    private Object value;
-    private boolean configurable;
+    // PERFORMANCE
+
+    /**
+     * allows complex expression parameters or named parameters for functions will be switched off,
+     * when deep nesting of functions is detected
+     */
+    allowComplexParsing(true),
+
+    /**
+     * allows passing through Unsupported Statements as a plain List of Tokens needs to be switched
+     * off, when VALIDATING statements or parsing blocks
+     */
+    allowUnsupportedStatements(false),
+
+    timeOut(8000),
+
+    /**
+     * allows Backslash '\' as Escape Character
+     */
+    allowBackslashEscapeCharacter(false),;
+
+    private final Object value;
+    private final boolean configurable;
 
     /**
      * a feature which can't configured within the parser
      */
-    private Feature() {
+    Feature() {
         this.value = null;
         this.configurable = false;
     }
@@ -725,9 +803,9 @@ public enum Feature {
     /**
      * a feature which can be configured by {@link FeatureConfiguration}
      *
-     * @param value
+     * @param value The Value Object of the Parameter.
      */
-    private Feature(Object value) {
+    Feature(Object value) {
         this.value = value;
         this.configurable = true;
     }

@@ -9,14 +9,12 @@
  */
 package net.sf.jsqlparser.statement.update;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
 import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.OracleHint;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.OutputClause;
+import net.sf.jsqlparser.statement.ReturningClause;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.StatementVisitor;
 import net.sf.jsqlparser.statement.select.FromItem;
@@ -25,28 +23,90 @@ import net.sf.jsqlparser.statement.select.Limit;
 import net.sf.jsqlparser.statement.select.OrderByElement;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
-import net.sf.jsqlparser.statement.select.SelectExpressionItem;
+import net.sf.jsqlparser.statement.select.WithItem;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
+
+@SuppressWarnings({"PMD.CyclomaticComplexity"})
 public class Update implements Statement {
 
+    private List<WithItem> withItemsList;
     private Table table;
     private Expression where;
-    private List<Column> columns;
-    private List<Expression> expressions;
+    private List<UpdateSet> updateSets;
     private FromItem fromItem;
     private List<Join> joins;
     private List<Join> startJoins;
-    private Select select;
-    private boolean useColumnsBrackets = true;
-    private boolean useSelect = false;
+    private OracleHint oracleHint = null;
     private List<OrderByElement> orderByElements;
     private Limit limit;
-    private boolean returningAllColumns = false;
-    private List<SelectExpressionItem> returningExpressionList = null;
+    private ReturningClause returningClause;
+    private UpdateModifierPriority modifierPriority;
+    private boolean modifierIgnore;
+
+    private OutputClause outputClause;
+
+    public OutputClause getOutputClause() {
+        return outputClause;
+    }
+
+    public void setOutputClause(OutputClause outputClause) {
+        this.outputClause = outputClause;
+    }
+
+    public List<UpdateSet> getUpdateSets() {
+        return updateSets;
+    }
+
+    public UpdateSet getUpdateSet(int index) {
+        return updateSets.get(index);
+    }
+
+    public void setUpdateSets(List<UpdateSet> updateSets) {
+        this.updateSets = updateSets;
+    }
+
+    public Update withUpdateSets(List<UpdateSet> updateSets) {
+        this.setUpdateSets(updateSets);
+        return this;
+    }
 
     @Override
     public void accept(StatementVisitor statementVisitor) {
         statementVisitor.visit(this);
+    }
+
+    public List<WithItem> getWithItemsList() {
+        return withItemsList;
+    }
+
+    public void setWithItemsList(List<WithItem> withItemsList) {
+        this.withItemsList = withItemsList;
+    }
+
+    public Update withWithItemsList(List<WithItem> withItemsList) {
+        this.setWithItemsList(withItemsList);
+        return this;
+    }
+
+    public Update addWithItemsList(WithItem... withItemsList) {
+        List<WithItem> collection =
+                Optional.ofNullable(getWithItemsList()).orElseGet(ArrayList::new);
+        Collections.addAll(collection, withItemsList);
+        return this.withWithItemsList(collection);
+    }
+
+    public Update addWithItemsList(Collection<? extends WithItem> withItemsList) {
+        List<WithItem> collection =
+                Optional.ofNullable(getWithItemsList()).orElseGet(ArrayList::new);
+        collection.addAll(withItemsList);
+        return this.withWithItemsList(collection);
     }
 
     public Table getTable() {
@@ -65,20 +125,49 @@ public class Update implements Statement {
         where = expression;
     }
 
+    public OracleHint getOracleHint() {
+        return oracleHint;
+    }
+
+    public void setOracleHint(OracleHint oracleHint) {
+        this.oracleHint = oracleHint;
+    }
+
+    public Update addUpdateSet(Column column, Expression expression) {
+        return this.addUpdateSet(new UpdateSet(column, expression));
+    }
+
+    public Update addUpdateSet(UpdateSet updateSet) {
+        if (this.updateSets == null) {
+            this.updateSets = new ArrayList<>();
+        }
+        this.updateSets.add(updateSet);
+        return this;
+    }
+
+    @Deprecated
     public List<Column> getColumns() {
-        return columns;
+        return updateSets.get(0).columns;
     }
 
+    @Deprecated
     public List<Expression> getExpressions() {
-        return expressions;
+        return updateSets.get(0).values;
     }
 
+    @Deprecated
     public void setColumns(List<Column> list) {
-        columns = list;
+        if (updateSets.isEmpty()) {
+            updateSets.add(new UpdateSet());
+        }
+        updateSets.get(0).columns.clear();
+        updateSets.get(0).columns.addAll(list);
     }
 
+    @Deprecated
     public void setExpressions(List<Expression> list) {
-        expressions = list;
+        updateSets.get(0).values.clear();
+        updateSets.get(0).values.addAll(list);
     }
 
     public FromItem getFromItem() {
@@ -105,28 +194,43 @@ public class Update implements Statement {
         this.startJoins = startJoins;
     }
 
+    @Deprecated
     public Select getSelect() {
+        Select select = null;
+        if (updateSets.get(0).values.get(0) instanceof Select) {
+            select = (Select) updateSets.get(0).values.get(0);
+        }
+
         return select;
     }
 
+    @Deprecated
     public void setSelect(Select select) {
-        this.select = select;
+        if (select != null) {
+            if (updateSets.get(0).values.isEmpty()) {
+                updateSets.get(0).values.add(select);
+            } else {
+                updateSets.get(0).values.set(0, select);
+            }
+        }
     }
 
+    @Deprecated
     public boolean isUseColumnsBrackets() {
-        return useColumnsBrackets;
+        return false;
     }
 
-    public void setUseColumnsBrackets(boolean useColumnsBrackets) {
-        this.useColumnsBrackets = useColumnsBrackets;
-    }
+    @Deprecated
+    public void setUseColumnsBrackets(boolean useColumnsBrackets) {}
 
+    @Deprecated
     public boolean isUseSelect() {
-        return useSelect;
+        return false;
     }
 
+    @Deprecated
     public void setUseSelect(boolean useSelect) {
-        this.useSelect = useSelect;
+        // todo
     }
 
     public void setOrderByElements(List<OrderByElement> orderByElements) {
@@ -145,60 +249,74 @@ public class Update implements Statement {
         return limit;
     }
 
-    public boolean isReturningAllColumns() {
-        return returningAllColumns;
+    public ReturningClause getReturningClause() {
+        return returningClause;
     }
 
-    public void setReturningAllColumns(boolean returningAllColumns) {
-        this.returningAllColumns = returningAllColumns;
+    public Update setReturningClause(ReturningClause returningClause) {
+        this.returningClause = returningClause;
+        return this;
     }
 
-    public List<SelectExpressionItem> getReturningExpressionList() {
-        return returningExpressionList;
+    public UpdateModifierPriority getModifierPriority() {
+        return modifierPriority;
     }
 
-    public void setReturningExpressionList(List<SelectExpressionItem> returningExpressionList) {
-        this.returningExpressionList = returningExpressionList;
+    public void setModifierPriority(UpdateModifierPriority modifierPriority) {
+        this.modifierPriority = modifierPriority;
+    }
+
+    public boolean isModifierIgnore() {
+        return modifierIgnore;
+    }
+
+    public void setModifierIgnore(boolean modifierIgnore) {
+        this.modifierIgnore = modifierIgnore;
     }
 
     @Override
+    @SuppressWarnings({"PMD.CyclomaticComplexity", "PMD.NPathComplexity",
+            "PMD.ExcessiveMethodLength"})
     public String toString() {
-        StringBuilder b = new StringBuilder("UPDATE ");
+        StringBuilder b = new StringBuilder();
+
+        if (withItemsList != null && !withItemsList.isEmpty()) {
+            b.append("WITH ");
+            for (Iterator<WithItem> iter = withItemsList.iterator(); iter.hasNext();) {
+                WithItem withItem = iter.next();
+                b.append(withItem);
+                if (iter.hasNext()) {
+                    b.append(",");
+                }
+                b.append(" ");
+            }
+        }
+        b.append("UPDATE ");
+        if (oracleHint != null) {
+            b.append(oracleHint).append(" ");
+        }
+        if (modifierPriority != null) {
+            b.append(modifierPriority.name()).append(" ");
+        }
+        if (modifierIgnore) {
+            b.append("IGNORE ");
+        }
         b.append(table);
         if (startJoins != null) {
-                for (Join join : startJoins) {
-                    if (join.isSimple()) {
-                        b.append(", ").append(join);
-                    } else {
-                        b.append(" ").append(join);
-                    }
+            for (Join join : startJoins) {
+                if (join.isSimple()) {
+                    b.append(", ").append(join);
+                } else {
+                    b.append(" ").append(join);
                 }
             }
-        b.append(" SET ");
+        }
 
-        if (!useSelect) {
-            for (int i = 0; i < getColumns().size(); i++) {
-                if (i != 0) {
-                    b.append(", ");
-                }
-                b.append(columns.get(i)).append(" = ");
-                b.append(expressions.get(i));
-            }
-        } else {
-            if (useColumnsBrackets) {
-                b.append("(");
-            }
-            for (int i = 0; i < getColumns().size(); i++) {
-                if (i != 0) {
-                    b.append(", ");
-                }
-                b.append(columns.get(i));
-            }
-            if (useColumnsBrackets) {
-                b.append(")");
-            }
-            b.append(" = ");
-            b.append("(").append(select).append(")");
+        b.append(" SET ");
+        UpdateSet.appendUpdateSetsTo(b, updateSets);
+
+        if (outputClause != null) {
+            outputClause.appendTo(b);
         }
 
         if (fromItem != null) {
@@ -225,11 +343,8 @@ public class Update implements Statement {
             b.append(limit);
         }
 
-        if (isReturningAllColumns()) {
-            b.append(" RETURNING *");
-        } else if (getReturningExpressionList() != null) {
-            b.append(" RETURNING ").append(PlainSelect.
-                    getStringList(getReturningExpressionList(), true, false));
+        if (returningClause != null) {
+            returningClause.appendTo(b);
         }
 
         return b.toString();
@@ -280,16 +395,6 @@ public class Update implements Statement {
         return this;
     }
 
-    public Update withReturningAllColumns(boolean returningAllColumns) {
-        this.setReturningAllColumns(returningAllColumns);
-        return this;
-    }
-
-    public Update withReturningExpressionList(List<SelectExpressionItem> returningExpressionList) {
-        this.setReturningExpressionList(returningExpressionList);
-        return this;
-    }
-
     public Update withWhere(Expression where) {
         this.setWhere(where);
         return this;
@@ -305,28 +410,36 @@ public class Update implements Statement {
         return this;
     }
 
+    public Update withModifierPriority(UpdateModifierPriority modifierPriority) {
+        this.setModifierPriority(modifierPriority);
+        return this;
+    }
+
+    public Update withModifierIgnore(boolean modifierIgnore) {
+        this.setModifierIgnore(modifierIgnore);
+        return this;
+    }
+
     public Update addColumns(Column... columns) {
-        List<Column> collection = Optional.ofNullable(getColumns()).orElseGet(ArrayList::new);
-        Collections.addAll(collection, columns);
-        return this.withColumns(collection);
+        return addColumns(Arrays.asList(columns));
     }
 
     public Update addColumns(Collection<? extends Column> columns) {
-        List<Column> collection = Optional.ofNullable(getColumns()).orElseGet(ArrayList::new);
-        collection.addAll(columns);
-        return this.withColumns(collection);
+        for (Column column : columns) {
+            updateSets.get(updateSets.size() - 1).add(column);
+        }
+        return this;
     }
 
     public Update addExpressions(Expression... expressions) {
-        List<Expression> collection = Optional.ofNullable(getExpressions()).orElseGet(ArrayList::new);
-        Collections.addAll(collection, expressions);
-        return this.withExpressions(collection);
+        return addExpressions(Arrays.asList(expressions));
     }
 
     public Update addExpressions(Collection<? extends Expression> expressions) {
-        List<Expression> collection = Optional.ofNullable(getExpressions()).orElseGet(ArrayList::new);
-        collection.addAll(expressions);
-        return this.withExpressions(collection);
+        for (Expression expression : expressions) {
+            updateSets.get(updateSets.size() - 1).add(expression);
+        }
+        return this;
     }
 
     public Update addJoins(Join... joins) {
@@ -354,27 +467,17 @@ public class Update implements Statement {
     }
 
     public Update addOrderByElements(OrderByElement... orderByElements) {
-        List<OrderByElement> collection = Optional.ofNullable(getOrderByElements()).orElseGet(ArrayList::new);
+        List<OrderByElement> collection =
+                Optional.ofNullable(getOrderByElements()).orElseGet(ArrayList::new);
         Collections.addAll(collection, orderByElements);
         return this.withOrderByElements(collection);
     }
 
     public Update addOrderByElements(Collection<? extends OrderByElement> orderByElements) {
-        List<OrderByElement> collection = Optional.ofNullable(getOrderByElements()).orElseGet(ArrayList::new);
+        List<OrderByElement> collection =
+                Optional.ofNullable(getOrderByElements()).orElseGet(ArrayList::new);
         collection.addAll(orderByElements);
         return this.withOrderByElements(collection);
-    }
-
-    public Update addReturningExpressionList(SelectExpressionItem... returningExpressionList) {
-        List<SelectExpressionItem> collection = Optional.ofNullable(getReturningExpressionList()).orElseGet(ArrayList::new);
-        Collections.addAll(collection, returningExpressionList);
-        return this.withReturningExpressionList(collection);
-    }
-
-    public Update addReturningExpressionList(Collection<? extends SelectExpressionItem> returningExpressionList) {
-        List<SelectExpressionItem> collection = Optional.ofNullable(getReturningExpressionList()).orElseGet(ArrayList::new);
-        collection.addAll(returningExpressionList);
-        return this.withReturningExpressionList(collection);
     }
 
     public <E extends Expression> E getWhere(Class<E> type) {

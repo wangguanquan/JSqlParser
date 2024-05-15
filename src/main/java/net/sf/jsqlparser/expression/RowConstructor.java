@@ -10,22 +10,17 @@
 package net.sf.jsqlparser.expression;
 
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
-import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
+import net.sf.jsqlparser.expression.operators.relational.ParenthesedExpressionList;
 
-public class RowConstructor extends ASTNodeAccessImpl implements Expression {
-
-    private ExpressionList exprList;
+public class RowConstructor<T extends Expression> extends ParenthesedExpressionList<T>
+        implements Expression {
     private String name = null;
 
-    public RowConstructor() {
-    }
+    public RowConstructor() {}
 
-    public ExpressionList getExprList() {
-        return exprList;
-    }
-
-    public void setExprList(ExpressionList exprList) {
-        this.exprList = exprList;
+    public RowConstructor(String name, ExpressionList<T> expressionList) {
+        this.name = name;
+        addAll(expressionList);
     }
 
     public String getName() {
@@ -37,18 +32,8 @@ public class RowConstructor extends ASTNodeAccessImpl implements Expression {
     }
 
     @Override
-    public void accept(ExpressionVisitor expressionVisitor) {
-        expressionVisitor.visit(this);
-    }
-
-    @Override
     public String toString() {
-        return (name != null ? name : "") + exprList.toString();
-    }
-
-    public RowConstructor withExprList(ExpressionList exprList) {
-        this.setExprList(exprList);
-        return this;
+        return (name != null ? name : "") + super.toString();
     }
 
     public RowConstructor withName(String name) {

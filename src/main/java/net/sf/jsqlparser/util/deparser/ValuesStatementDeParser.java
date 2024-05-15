@@ -9,11 +9,10 @@
  */
 package net.sf.jsqlparser.util.deparser;
 
-import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.ExpressionVisitor;
-import net.sf.jsqlparser.statement.values.ValuesStatement;
+import net.sf.jsqlparser.statement.select.Values;
 
-public class ValuesStatementDeParser extends AbstractDeParser<ValuesStatement> {
+public class ValuesStatementDeParser extends AbstractDeParser<Values> {
 
     private final ExpressionVisitor expressionVisitor;
 
@@ -23,17 +22,8 @@ public class ValuesStatementDeParser extends AbstractDeParser<ValuesStatement> {
     }
 
     @Override
-    public void deParse(ValuesStatement values) {
-        boolean first = true;
-        buffer.append("VALUES (");
-        for (Expression expr : values.getExpressions()) {
-            if (first) {
-                first = false;
-            } else {
-                buffer.append(", ");
-            }
-            expr.accept(expressionVisitor);
-        }
-        buffer.append(")");
+    public void deParse(Values values) {
+        buffer.append("VALUES ");
+        values.getExpressions().accept(expressionVisitor);
     }
 }

@@ -1,20 +1,21 @@
-/*
+/*-
  * #%L
  * JSQLParser library
  * %%
- * Copyright (C) 2004 - 2020 JSQLParser
+ * Copyright (C) 2004 - 2019 JSQLParser
  * %%
  * Dual licensed under GNU LGPL 2.1 or Apache License 2.0
  * #L%
  */
 package net.sf.jsqlparser.schema;
 
+import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
 
 /**
  * Represents the database type for a {@code SEQUENCE}
@@ -29,8 +30,7 @@ public class Sequence extends ASTNodeAccessImpl implements MultiPartName {
 
     private List<Parameter> parameters;
 
-    public Sequence() {
-    }
+    public Sequence() {}
 
     public Sequence(List<String> partItems) {
         this.partItems = new ArrayList<>(partItems);
@@ -60,7 +60,7 @@ public class Sequence extends ASTNodeAccessImpl implements MultiPartName {
         setDatabase(database);
         return this;
     }
-    
+
     public String getSchemaName() {
         return getIndex(SCHEMA_IDX);
     }
@@ -153,28 +153,18 @@ public class Sequence extends ASTNodeAccessImpl implements MultiPartName {
      * The available parameters to a sequence
      */
     public enum ParameterType {
-        INCREMENT_BY,
-        START_WITH,
-        MAXVALUE,
-        NOMAXVALUE,
-        MINVALUE,
-        NOMINVALUE,
-        CYCLE,
-        NOCYCLE,
-        CACHE,
-        NOCACHE,
-        ORDER,
-        NOORDER,
-        KEEP,
-        NOKEEP,
-        SESSION,
-        GLOBAL
+        INCREMENT_BY, START_WITH, RESTART_WITH, MAXVALUE, NOMAXVALUE, MINVALUE, NOMINVALUE, CYCLE, NOCYCLE, CACHE, NOCACHE, ORDER, NOORDER, KEEP, NOKEEP, SESSION, GLOBAL;
+
+        public static ParameterType from(String type) {
+            return Enum.valueOf(ParameterType.class, type.toUpperCase());
+        }
     }
 
     /**
      * Represents a parameter when declaring a sequence
      */
     public static class Parameter {
+
         private final ParameterType option;
         private Long value;
 
@@ -196,6 +186,12 @@ public class Sequence extends ASTNodeAccessImpl implements MultiPartName {
                     return prefix("INCREMENT BY");
                 case START_WITH:
                     return prefix("START WITH");
+                case RESTART_WITH:
+                    if (value != null) {
+                        return prefix("RESTART WITH");
+                    } else {
+                        return "RESTART";
+                    }
                 case MAXVALUE:
                 case MINVALUE:
                 case CACHE:

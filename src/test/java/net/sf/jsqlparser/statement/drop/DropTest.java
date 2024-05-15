@@ -9,17 +9,14 @@
  */
 package net.sf.jsqlparser.statement.drop;
 
-import static net.sf.jsqlparser.test.TestUtils.*;
-
-import static org.junit.Assert.assertEquals;
-
 import java.io.StringReader;
-
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserManager;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
-import org.junit.Test;
+import static net.sf.jsqlparser.test.TestUtils.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 public class DropTest {
 
@@ -49,6 +46,11 @@ public class DropTest {
         assertDeparse(created, statement);
         assertEqualsObjectTree(parsed, created);
     }
+    
+    @Test
+    public void testDropIndexOnTable() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed("DROP INDEX idx ON abc");
+    }
 
     @Test
     public void testDrop2() throws JSQLParserException {
@@ -65,7 +67,7 @@ public class DropTest {
         assertDeparse(created, statement);
         assertEqualsObjectTree(parsed, created);
     }
-    
+
     @Test
     public void testDropRestrictIssue510() throws JSQLParserException {
         String statement = "DROP TABLE TABLE2 RESTRICT";
@@ -74,17 +76,22 @@ public class DropTest {
         assertDeparse(created, statement);
         assertEqualsObjectTree(parsed, created);
     }
-    
+
     @Test
     public void testDropViewIssue545() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed("DROP VIEW myview");
     }
-    
+
     @Test
     public void testDropViewIssue545_2() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed("DROP VIEW IF EXISTS myview");
     }
-    
+
+    @Test
+    public void testDropMaterializedView() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed("DROP MATERIALIZED VIEW myview");
+    }
+
     @Test
     public void testDropSchemaIssue855() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed("DROP SCHEMA myschema");
@@ -93,5 +100,42 @@ public class DropTest {
     @Test
     public void testDropSequence() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed("DROP SEQUENCE mysequence");
+    }
+
+    @Test
+    public void testOracleMultiColumnDrop() throws JSQLParserException {
+        //assertSqlCanBeParsedAndDeparsed("ALTER TABLE foo DROP (bar, baz)");
+        assertSqlCanBeParsedAndDeparsed("ALTER TABLE foo DROP (bar, baz) CASCADE");
+    }
+
+    @Test
+    public void testUniqueFunctionDrop() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed("DROP FUNCTION myFunc");
+    }
+
+    @Test
+    public void testZeroArgDropFunction() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed("DROP FUNCTION myFunc()");
+    }
+
+    @Test
+    public void testDropFunctionWithSimpleType() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed("DROP FUNCTION myFunc(integer, varchar)");
+    }
+
+    @Test
+    public void testDropFunctionWithNameAndType() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed("DROP FUNCTION myFunc(amount integer, name varchar)");
+    }
+
+    @Test
+    public void testDropFunctionWithNameAndParameterizedType() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed("DROP FUNCTION myFunc(amount integer, name varchar(255))");
+    }
+
+    @Test
+    void dropTemporaryTableTestIssue1712() throws JSQLParserException {
+        String sqlStr="drop temporary table if exists tmp_MwYT8N0z";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
     }
 }

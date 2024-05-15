@@ -9,14 +9,16 @@
  */
 package net.sf.jsqlparser.util.validation.validator;
 
-import net.sf.jsqlparser.expression.AllComparisonExpression;
+import net.sf.jsqlparser.expression.AllValue;
 import net.sf.jsqlparser.expression.AnalyticExpression;
 import net.sf.jsqlparser.expression.AnyComparisonExpression;
+import net.sf.jsqlparser.expression.ArrayConstructor;
 import net.sf.jsqlparser.expression.ArrayExpression;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.CaseExpression;
 import net.sf.jsqlparser.expression.CastExpression;
 import net.sf.jsqlparser.expression.CollateExpression;
+import net.sf.jsqlparser.expression.ConnectByRootOperator;
 import net.sf.jsqlparser.expression.DateTimeLiteralExpression;
 import net.sf.jsqlparser.expression.DateValue;
 import net.sf.jsqlparser.expression.DoubleValue;
@@ -28,8 +30,11 @@ import net.sf.jsqlparser.expression.HexValue;
 import net.sf.jsqlparser.expression.IntervalExpression;
 import net.sf.jsqlparser.expression.JdbcNamedParameter;
 import net.sf.jsqlparser.expression.JdbcParameter;
+import net.sf.jsqlparser.expression.JsonAggregateFunction;
 import net.sf.jsqlparser.expression.JsonExpression;
+import net.sf.jsqlparser.expression.JsonFunction;
 import net.sf.jsqlparser.expression.KeepExpression;
+import net.sf.jsqlparser.expression.LambdaExpression;
 import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.MySQLGroupConcat;
 import net.sf.jsqlparser.expression.NextValExpression;
@@ -38,15 +43,21 @@ import net.sf.jsqlparser.expression.NullValue;
 import net.sf.jsqlparser.expression.NumericBind;
 import net.sf.jsqlparser.expression.OracleHierarchicalExpression;
 import net.sf.jsqlparser.expression.OracleHint;
-import net.sf.jsqlparser.expression.Parenthesis;
+import net.sf.jsqlparser.expression.OracleNamedFunctionParameter;
+import net.sf.jsqlparser.expression.OverlapsCondition;
+import net.sf.jsqlparser.expression.RangeExpression;
 import net.sf.jsqlparser.expression.RowConstructor;
+import net.sf.jsqlparser.expression.RowGetExpression;
 import net.sf.jsqlparser.expression.SignedExpression;
 import net.sf.jsqlparser.expression.StringValue;
+import net.sf.jsqlparser.expression.StructType;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
 import net.sf.jsqlparser.expression.TimeValue;
 import net.sf.jsqlparser.expression.TimestampValue;
+import net.sf.jsqlparser.expression.TimezoneExpression;
+import net.sf.jsqlparser.expression.TranscodingFunction;
+import net.sf.jsqlparser.expression.TrimFunction;
 import net.sf.jsqlparser.expression.UserVariable;
-import net.sf.jsqlparser.expression.ValueListExpression;
 import net.sf.jsqlparser.expression.VariableAssignment;
 import net.sf.jsqlparser.expression.WhenClause;
 import net.sf.jsqlparser.expression.WindowElement;
@@ -67,39 +78,53 @@ import net.sf.jsqlparser.expression.operators.arithmetic.Multiplication;
 import net.sf.jsqlparser.expression.operators.arithmetic.Subtraction;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
+import net.sf.jsqlparser.expression.operators.conditional.XorExpression;
 import net.sf.jsqlparser.expression.operators.relational.Between;
+import net.sf.jsqlparser.expression.operators.relational.ContainedBy;
+import net.sf.jsqlparser.expression.operators.relational.Contains;
+import net.sf.jsqlparser.expression.operators.relational.DoubleAnd;
 import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.ExcludesExpression;
 import net.sf.jsqlparser.expression.operators.relational.ExistsExpression;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.expression.operators.relational.FullTextSearch;
+import net.sf.jsqlparser.expression.operators.relational.GeometryDistance;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.InExpression;
+import net.sf.jsqlparser.expression.operators.relational.IncludesExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsBooleanExpression;
+import net.sf.jsqlparser.expression.operators.relational.IsDistinctExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
 import net.sf.jsqlparser.expression.operators.relational.JsonOperator;
 import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.Matches;
+import net.sf.jsqlparser.expression.operators.relational.MemberOfExpression;
 import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import net.sf.jsqlparser.expression.operators.relational.OldOracleJoinBinaryExpression;
 import net.sf.jsqlparser.expression.operators.relational.RegExpMatchOperator;
-import net.sf.jsqlparser.expression.operators.relational.RegExpMySQLOperator;
 import net.sf.jsqlparser.expression.operators.relational.SimilarToExpression;
 import net.sf.jsqlparser.expression.operators.relational.SupportsOldOracleJoinSyntax;
+import net.sf.jsqlparser.expression.operators.relational.TSQLLeftJoin;
+import net.sf.jsqlparser.expression.operators.relational.TSQLRightJoin;
 import net.sf.jsqlparser.parser.feature.Feature;
 import net.sf.jsqlparser.schema.Column;
-import net.sf.jsqlparser.statement.select.SubSelect;
+import net.sf.jsqlparser.statement.select.AllColumns;
+import net.sf.jsqlparser.statement.select.AllTableColumns;
+import net.sf.jsqlparser.statement.select.ParenthesedSelect;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectItem;
 import net.sf.jsqlparser.util.validation.ValidationCapability;
 import net.sf.jsqlparser.util.validation.metadata.NamedObject;
 
 /**
  * @author gitmotte
  */
-public class ExpressionValidator extends AbstractValidator<Expression> implements ExpressionVisitor {
-
-
+@SuppressWarnings({"PMD.CyclomaticComplexity"})
+public class ExpressionValidator extends AbstractValidator<Expression>
+        implements ExpressionVisitor {
     @Override
     public void visit(Addition addition) {
         visitBinaryExpression(addition, " + ");
@@ -116,6 +141,13 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
         between.getBetweenExpressionStart().accept(this);
         between.getBetweenExpressionEnd().accept(this);
     }
+
+    @Override
+    public void visit(OverlapsCondition overlapsCondition) {
+        validateOptionalExpressionList(overlapsCondition.getLeft());
+        validateOptionalExpressionList(overlapsCondition.getRight());
+    }
+
 
     @Override
     public void visit(EqualsTo equalsTo) {
@@ -157,14 +189,16 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
         visitBinaryExpression(expr, " << ");
     }
 
-    public void visitOldOracleJoinBinaryExpression(OldOracleJoinBinaryExpression expression, String operator) {
+    public void visitOldOracleJoinBinaryExpression(OldOracleJoinBinaryExpression expression,
+            String operator) {
         for (ValidationCapability c : getCapabilities()) {
             validateOptionalExpression(expression.getLeftExpression(), this);
             if (expression.getOldOracleJoinSyntax() != SupportsOldOracleJoinSyntax.NO_ORACLE_JOIN) {
                 validateFeature(c, Feature.oracleOldJoinSyntax);
             }
             validateOptionalExpression(expression.getRightExpression(), this);
-            if (expression.getOraclePriorPosition() != SupportsOldOracleJoinSyntax.NO_ORACLE_PRIOR) {
+            if (expression
+                    .getOraclePriorPosition() != SupportsOldOracleJoinSyntax.NO_ORACLE_PRIOR) {
                 validateFeature(c, Feature.oraclePriorPosition);
             }
         }
@@ -185,14 +219,24 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
     public void visit(InExpression inExpression) {
         for (ValidationCapability c : getCapabilities()) {
             validateOptionalExpression(inExpression.getLeftExpression(), this);
-            if (inExpression.getOldOracleJoinSyntax() != SupportsOldOracleJoinSyntax.NO_ORACLE_JOIN) {
+            if (inExpression
+                    .getOldOracleJoinSyntax() != SupportsOldOracleJoinSyntax.NO_ORACLE_JOIN) {
                 validateFeature(c, Feature.oracleOldJoinSyntax);
             }
         }
-
-        validateOptionalMultiExpressionList(inExpression.getMultiExpressionList());
         validateOptionalExpression(inExpression.getRightExpression(), this);
-        validateOptionalItemsList(inExpression.getRightItemsList());
+    }
+
+    @Override
+    public void visit(IncludesExpression includesExpression) {
+        validateOptionalExpression(includesExpression.getLeftExpression(), this);
+        validateOptionalExpression(includesExpression.getRightExpression(), this);
+    }
+
+    @Override
+    public void visit(ExcludesExpression excludesExpression) {
+        validateOptionalExpression(excludesExpression.getLeftExpression(), this);
+        validateOptionalExpression(excludesExpression.getRightExpression(), this);
     }
 
     @Override
@@ -223,14 +267,19 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
     @Override
     public void visit(LikeExpression likeExpression) {
         validateFeature(Feature.exprLike);
-        visitBinaryExpression(likeExpression,
-                (likeExpression.isNot() ? " NOT" : "")
+        visitBinaryExpression(likeExpression, (likeExpression.isNot() ? " NOT" : "")
                 + (likeExpression.isCaseInsensitive() ? " ILIKE " : " LIKE "));
     }
 
     @Override
     public void visit(ExistsExpression existsExpression) {
         existsExpression.getRightExpression().accept(this);
+    }
+
+    @Override
+    public void visit(MemberOfExpression memberOfExpression) {
+        memberOfExpression.getLeftExpression().accept(this);
+        memberOfExpression.getRightExpression().accept(this);
     }
 
     @Override
@@ -258,7 +307,23 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
 
     @Override
     public void visit(NotEqualsTo notEqualsTo) {
-        visitOldOracleJoinBinaryExpression(notEqualsTo, " " + notEqualsTo.getStringExpression() + " ");
+        visitOldOracleJoinBinaryExpression(notEqualsTo,
+                " " + notEqualsTo.getStringExpression() + " ");
+    }
+
+    @Override
+    public void visit(DoubleAnd doubleAnd) {
+
+    }
+
+    @Override
+    public void visit(Contains contains) {
+
+    }
+
+    @Override
+    public void visit(ContainedBy containedBy) {
+
     }
 
     @Override
@@ -273,8 +338,9 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
     }
 
     @Override
-    public void visit(Parenthesis parenthesis) {
-        parenthesis.getExpression().accept(this);
+    public void visit(XorExpression xorExpression) {
+        visitBinaryExpression(xorExpression, " XOR ");
+
     }
 
     @Override
@@ -293,8 +359,8 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
     }
 
     @Override
-    public void visit(SubSelect subSelect) {
-        validateOptionalFromItem(subSelect);
+    public void visit(ParenthesedSelect selectBody) {
+        validateOptionalFromItem(selectBody);
     }
 
     @Override
@@ -306,10 +372,16 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
     public void visit(Function function) {
         validateFeature(Feature.function);
 
-        validateOptionalItemsList(function.getNamedParameters());
-        validateOptionalItemsList(function.getParameters());
-        validateOptionalExpression(function.getAttribute(), this);
+        validateOptionalExpressionList(function.getNamedParameters());
+        validateOptionalExpressionList(function.getParameters());
+
+        Object attribute = function.getAttribute();
+        if (attribute instanceof Expression) {
+            validateOptionalExpression((Expression) attribute, this);
+        }
+
         validateOptionalExpression(function.getKeep(), this);
+        validateOptionalOrderByElements(function.getOrderByElements());
     }
 
     @Override
@@ -349,13 +421,8 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
     }
 
     @Override
-    public void visit(AllComparisonExpression allComparisonExpression) {
-        allComparisonExpression.getSubSelect().accept(this);
-    }
-
-    @Override
     public void visit(AnyComparisonExpression anyComparisonExpression) {
-        anyComparisonExpression.getSubSelect().accept(this);
+        anyComparisonExpression.getSelect().accept(this);
     }
 
     @Override
@@ -445,13 +512,8 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
     }
 
     @Override
-    public void visit(RegExpMySQLOperator rexpr) {
-        visitBinaryExpression(rexpr, " " + rexpr.getStringExpression() + " ");
-    }
-
-    @Override
     public void visit(JsonExpression jsonExpr) {
-        validateOptionalExpression(jsonExpr.getColumn());
+        validateOptionalExpression(jsonExpr.getExpression());
     }
 
     @Override
@@ -480,20 +542,27 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
         validateOptionalOrderByElements(groupConcat.getOrderByElements());
     }
 
-    private void validateOptionalExpressionList(ExpressionList expressionList) {
+    private void validateOptionalExpressionList(ExpressionList<?> expressionList) {
         if (expressionList != null) {
-            expressionList.accept(getValidator(ItemsListValidator.class));
+            for (Expression expression : expressionList) {
+                expression.accept(this);
+            }
         }
     }
 
     @Override
-    public void visit(ValueListExpression valueList) {
-        validateOptionalExpressionList(valueList.getExpressionList());
+    public void visit(ExpressionList<?> expressionList) {
+        validateOptionalExpressionList(expressionList);
     }
 
     @Override
     public void visit(RowConstructor rowConstructor) {
-        validateOptionalExpressionList(rowConstructor.getExprList());
+        validateOptionalExpressionList(rowConstructor);
+    }
+
+    @Override
+    public void visit(RowGetExpression rowGetExpression) {
+        rowGetExpression.getExpression().accept(this);
     }
 
     @Override
@@ -505,6 +574,7 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
     public void visit(TimeKeyExpression timeKeyExpression) {
         // nothing to validate
     }
+
     @Override
     public void visit(DateTimeLiteralExpression literal) {
         // nothing to validate
@@ -529,7 +599,22 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
     @Override
     public void visit(ArrayExpression array) {
         array.getObjExpression().accept(this);
-        array.getIndexExpression().accept(this);
+        if (array.getIndexExpression() != null) {
+            array.getIndexExpression().accept(this);
+        }
+        if (array.getStartIndexExpression() != null) {
+            array.getStartIndexExpression().accept(this);
+        }
+        if (array.getStopIndexExpression() != null) {
+            array.getStopIndexExpression().accept(this);
+        }
+    }
+
+    @Override
+    public void visit(ArrayConstructor aThis) {
+        for (Expression expression : aThis.getExpressions()) {
+            expression.accept(this);
+        }
     }
 
     @Override
@@ -546,8 +631,106 @@ public class ExpressionValidator extends AbstractValidator<Expression> implement
     }
 
     @Override
+    public void visit(TimezoneExpression a) {
+        validateOptionalExpression(a.getLeftExpression());
+    }
+
+    @Override
     public void visit(XMLSerializeExpr xml) {
         // TODO this feature seams very close to a jsqlparser-user usecase
     }
 
+    @Override
+    public void visit(JsonAggregateFunction expression) {
+        // no idea what this is good for
+    }
+
+    @Override
+    public void visit(JsonFunction expression) {
+        // no idea what this is good for
+    }
+
+    @Override
+    public void visit(ConnectByRootOperator connectByRootOperator) {
+        connectByRootOperator.getColumn().accept(this);
+    }
+
+    @Override
+    public void visit(OracleNamedFunctionParameter oracleNamedFunctionParameter) {
+        oracleNamedFunctionParameter.getExpression().accept(this);
+    }
+
+    @Override
+    public void visit(AllColumns allColumns) {}
+
+    @Override
+    public void visit(AllTableColumns allTableColumns) {}
+
+    @Override
+    public void visit(AllValue allValue) {
+
+    }
+
+    @Override
+    public void visit(IsDistinctExpression isDistinctExpression) {
+        isDistinctExpression.getLeftExpression().accept(this);
+        isDistinctExpression.getRightExpression().accept(this);
+    }
+
+    @Override
+    public void visit(GeometryDistance geometryDistance) {
+        visitOldOracleJoinBinaryExpression(geometryDistance, " <-> ");
+    }
+
+    @Override
+    public void visit(Select selectBody) {
+
+    }
+
+    @Override
+    public void visit(TranscodingFunction transcodingFunction) {
+        transcodingFunction.getExpression().accept(this);
+    }
+
+    @Override
+    public void visit(TrimFunction trimFunction) {
+        if (trimFunction.getExpression() != null) {
+            trimFunction.getExpression().accept(this);
+        }
+        if (trimFunction.getFromExpression() != null) {
+            trimFunction.getFromExpression().accept(this);
+        }
+    }
+
+    @Override
+    public void visit(RangeExpression rangeExpression) {
+        rangeExpression.getStartExpression().accept(this);
+        rangeExpression.getEndExpression().accept(this);
+    }
+
+    @Override
+    public void visit(TSQLLeftJoin tsqlLeftJoin) {
+        tsqlLeftJoin.getLeftExpression().accept(this);
+        tsqlLeftJoin.getRightExpression().accept(this);
+    }
+
+    @Override
+    public void visit(TSQLRightJoin tsqlRightJoin) {
+        tsqlRightJoin.getLeftExpression().accept(this);
+        tsqlRightJoin.getRightExpression().accept(this);
+    }
+
+    @Override
+    public void visit(StructType structType) {
+        if (structType.getArguments() != null) {
+            for (SelectItem<?> selectItem : structType.getArguments()) {
+                selectItem.getExpression().accept(this);
+            }
+        }
+    }
+
+    @Override
+    public void visit(LambdaExpression lambdaExpression) {
+        lambdaExpression.getExpression().accept(this);
+    }
 }

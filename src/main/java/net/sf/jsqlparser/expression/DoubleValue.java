@@ -16,7 +16,7 @@ import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
  */
 public class DoubleValue extends ASTNodeAccessImpl implements Expression {
 
-    private double value;
+    private Double value;
     private String stringValue;
 
     public DoubleValue() {
@@ -24,12 +24,20 @@ public class DoubleValue extends ASTNodeAccessImpl implements Expression {
     }
 
     public DoubleValue(final String value) {
+        if (value == null || value.length() == 0) {
+            throw new IllegalArgumentException("value can neither be null nor empty.");
+        }
         String val = value;
         if (val.charAt(0) == '+') {
             val = val.substring(1);
         }
         this.value = Double.parseDouble(val);
         this.stringValue = val;
+    }
+
+    public DoubleValue(final double value) {
+        this.value = value;
+        this.stringValue = String.valueOf(value);
     }
 
     @Override
@@ -41,7 +49,7 @@ public class DoubleValue extends ASTNodeAccessImpl implements Expression {
         return value;
     }
 
-    public void setValue(double d) {
+    public void setValue(Double d) {
         value = d;
     }
 
@@ -50,7 +58,7 @@ public class DoubleValue extends ASTNodeAccessImpl implements Expression {
         return stringValue;
     }
 
-    public DoubleValue withValue(double value) {
+    public DoubleValue withValue(Double value) {
         this.setValue(value);
         return this;
     }

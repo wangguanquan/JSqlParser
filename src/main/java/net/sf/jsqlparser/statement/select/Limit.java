@@ -9,15 +9,28 @@
  */
 package net.sf.jsqlparser.statement.select;
 
+import net.sf.jsqlparser.expression.AllValue;
 import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.NullValue;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
+
+import java.util.Arrays;
 
 public class Limit extends ASTNodeAccessImpl {
 
     private Expression rowCount;
     private Expression offset;
-    private boolean limitAll;
-    private boolean limitNull = false;
+
+    /**
+     * A query with the LIMIT n BY expressions clause selects the first n rows for each distinct
+     * value of expressions. The key for LIMIT BY can contain any number of expressions.
+     * 
+     * @see <a href=
+     *      'https://clickhouse.com/docs/en/sql-reference/statements/select/limit-by'>ClickHouse
+     *      LIMIT BY Clause</a>
+     */
+    private ExpressionList<Expression> byExpressions;
 
     public Expression getOffset() {
         return offset;
@@ -35,38 +48,48 @@ public class Limit extends ASTNodeAccessImpl {
         rowCount = l;
     }
 
+    @Deprecated
     public boolean isLimitAll() {
-        return limitAll;
+        return rowCount instanceof AllValue;
     }
 
+    @Deprecated
     public void setLimitAll(boolean b) {
-        limitAll = b;
+        if (b) {
+            rowCount = new AllValue();
+        }
     }
 
+    @Deprecated
     public boolean isLimitNull() {
-        return limitNull;
+        return rowCount instanceof NullValue;
     }
 
+    @Deprecated
     public void setLimitNull(boolean b) {
-        limitNull = b;
+        if (b) {
+            rowCount = new NullValue();
+        }
     }
 
     @Override
     public String toString() {
         String retVal = " LIMIT ";
-        if (limitNull) {
-            retVal += "NULL";
+
+        if (rowCount instanceof AllValue || rowCount instanceof NullValue) {
+            // no offset allowed
+            retVal += rowCount;
         } else {
-            if (limitAll) {
-                retVal += "ALL";
-            } else {
-                if (null != offset) {
-                    retVal += offset + ", ";
-                }
-                if (null != rowCount) {
-                    retVal += rowCount;
-                }
+            if (null != offset) {
+                retVal += offset + ", ";
             }
+            if (null != rowCount) {
+                retVal += rowCount;
+            }
+        }
+
+        if (byExpressions != null) {
+            retVal += " BY " + byExpressions.toString();
         }
 
         return retVal;
@@ -82,11 +105,13 @@ public class Limit extends ASTNodeAccessImpl {
         return this;
     }
 
+    @Deprecated
     public Limit withLimitAll(boolean limitAll) {
         this.setLimitAll(limitAll);
         return this;
     }
 
+    @Deprecated
     public Limit withLimitNull(boolean limitNull) {
         this.setLimitNull(limitNull);
         return this;
@@ -98,5 +123,33 @@ public class Limit extends ASTNodeAccessImpl {
 
     public <E extends Expression> E getRowCount(Class<E> type) {
         return type.cast(getRowCount());
+    }
+
+    public ExpressionList<?> getByExpressions() {
+        return byExpressions;
+    }
+
+    public void setByExpressions(ExpressionList<Expression> byExpressions) {
+        this.byExpressions = byExpressions;
+    }
+
+    public void setByExpressions(Expression... byExpressions) {
+        this.setByExpressions(new ExpressionList<>(byExpressions));
+    }
+
+    public void addByExpression(Expression byExpression) {
+        if (byExpression == null) {
+            byExpressions = new ExpressionList<>();
+        }
+        byExpressions.add(byExpression);
+    }
+
+    public Limit withByExpressions(ExpressionList<Expression> byExpressions) {
+        this.setByExpressions(byExpressions);
+        return this;
+    }
+
+    public Limit withByExpressions(Expression... byExpressions) {
+        return withByExpressions(new ExpressionList<>(Arrays.asList(byExpressions)));
     }
 }

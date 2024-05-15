@@ -15,20 +15,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-public class WithItem implements SelectBody {
+public class WithItem extends ParenthesedSelect {
 
-    private String name;
-    private List<SelectItem> withItemList;
-    private SelectBody selectBody;
-    private boolean recursive;
+    private List<SelectItem<?>> withItemList;
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
+    private boolean recursive = false;
 
     public boolean isRecursive() {
         return recursive;
@@ -38,32 +29,33 @@ public class WithItem implements SelectBody {
         this.recursive = recursive;
     }
 
-    public SelectBody getSelectBody() {
-        return selectBody;
-    }
-
-    public void setSelectBody(SelectBody selectBody) {
-        this.selectBody = selectBody;
-    }
 
     /**
      * The {@link SelectItem}s in this WITH (for example the A,B,C in "WITH mywith (A,B,C) AS ...")
      *
      * @return a list of {@link SelectItem}s
      */
-    public List<SelectItem> getWithItemList() {
+    public List<SelectItem<?>> getWithItemList() {
         return withItemList;
     }
 
-    public void setWithItemList(List<SelectItem> withItemList) {
+    public void setWithItemList(List<SelectItem<?>> withItemList) {
         this.withItemList = withItemList;
     }
 
     @Override
-    public String toString() {
-        return (recursive ? "RECURSIVE " : "") + name + ((withItemList != null) ? " " + PlainSelect.
-                getStringList(withItemList, true, true) : "")
-                + " AS (" + selectBody + ")";
+    @SuppressWarnings({"PMD.CyclomaticComplexity"})
+    public StringBuilder appendSelectBodyTo(StringBuilder builder) {
+        builder.append(recursive ? "RECURSIVE " : "");
+        builder.append(alias.getName());
+        builder.append(
+                (withItemList != null) ? " " + PlainSelect.getStringList(withItemList, true, true)
+                        : "");
+        builder.append(" AS ");
+
+        select.appendTo(builder);
+
+        return builder;
     }
 
     @Override
@@ -71,18 +63,9 @@ public class WithItem implements SelectBody {
         visitor.visit(this);
     }
 
-    public WithItem withName(String name) {
-        this.setName(name);
-        return this;
-    }
 
-    public WithItem withWithItemList(List<SelectItem> withItemList) {
+    public WithItem withWithItemList(List<SelectItem<?>> withItemList) {
         this.setWithItemList(withItemList);
-        return this;
-    }
-
-    public WithItem withSelectBody(SelectBody selectBody) {
-        this.setSelectBody(selectBody);
         return this;
     }
 
@@ -91,19 +74,17 @@ public class WithItem implements SelectBody {
         return this;
     }
 
-    public WithItem addWithItemList(SelectItem... withItemList) {
-        List<SelectItem> collection = Optional.ofNullable(getWithItemList()).orElseGet(ArrayList::new);
+    public WithItem addWithItemList(SelectItem<?>... withItemList) {
+        List<SelectItem<?>> collection =
+                Optional.ofNullable(getWithItemList()).orElseGet(ArrayList::new);
         Collections.addAll(collection, withItemList);
         return this.withWithItemList(collection);
     }
 
-    public WithItem addWithItemList(Collection<? extends SelectItem> withItemList) {
-        List<SelectItem> collection = Optional.ofNullable(getWithItemList()).orElseGet(ArrayList::new);
+    public WithItem addWithItemList(Collection<? extends SelectItem<?>> withItemList) {
+        List<SelectItem<?>> collection =
+                Optional.ofNullable(getWithItemList()).orElseGet(ArrayList::new);
         collection.addAll(withItemList);
         return this.withWithItemList(collection);
-    }
-
-    public <E extends SelectBody> E getSelectBody(Class<E> type) {
-        return type.cast(getSelectBody());
     }
 }

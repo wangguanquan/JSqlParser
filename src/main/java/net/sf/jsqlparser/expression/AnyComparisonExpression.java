@@ -10,7 +10,7 @@
 package net.sf.jsqlparser.expression;
 
 import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
-import net.sf.jsqlparser.statement.select.SubSelect;
+import net.sf.jsqlparser.statement.select.Select;
 
 /**
  * Combines ANY and SOME expressions.
@@ -18,18 +18,18 @@ import net.sf.jsqlparser.statement.select.SubSelect;
  * @author toben
  */
 public class AnyComparisonExpression extends ASTNodeAccessImpl implements Expression {
-
-    private final SubSelect subSelect;
+    private final Select select;
     private final AnyType anyType;
 
-    public AnyComparisonExpression(AnyType anyType, SubSelect subSelect) {
+    public AnyComparisonExpression(AnyType anyType, Select select) {
         this.anyType = anyType;
-        this.subSelect = subSelect;
+        this.select = select;
     }
 
-    public SubSelect getSubSelect() {
-        return subSelect;
+    public Select getSelect() {
+        return select;
     }
+
 
     @Override
     public void accept(ExpressionVisitor expressionVisitor) {
@@ -42,6 +42,7 @@ public class AnyComparisonExpression extends ASTNodeAccessImpl implements Expres
 
     @Override
     public String toString() {
-        return anyType.name() + " " + subSelect.toString();
+        String s = anyType.name() + select;
+        return s;
     }
 }

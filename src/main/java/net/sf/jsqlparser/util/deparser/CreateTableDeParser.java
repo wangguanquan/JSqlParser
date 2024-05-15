@@ -32,8 +32,12 @@ public class CreateTableDeParser extends AbstractDeParser<CreateTable> {
     }
 
     @Override
+    @SuppressWarnings({"PMD.CyclomaticComplexity", "PMD.NPathComplexity"})
     public void deParse(CreateTable createTable) {
         buffer.append("CREATE ");
+        if (createTable.isOrReplace()) {
+            buffer.append("OR REPLACE ");
+        }
         if (createTable.isUnlogged()) {
             buffer.append("UNLOGGED ");
         }
@@ -48,6 +52,15 @@ public class CreateTableDeParser extends AbstractDeParser<CreateTable> {
         }
         buffer.append(createTable.getTable().getFullyQualifiedName());
 
+        if (createTable.getColumns() != null && !createTable.getColumns().isEmpty()) {
+            buffer.append(" (");
+            Iterator<String> columnIterator = createTable.getColumns().iterator();
+            buffer.append(columnIterator.next());
+            while (columnIterator.hasNext()) {
+                buffer.append(", ").append(columnIterator.next());
+            }
+            buffer.append(")");
+        }
         if (createTable.getColumnDefinitions() != null) {
             buffer.append(" (");
             for (Iterator<ColumnDefinition> iter = createTable.getColumnDefinitions().iterator(); iter.hasNext();) {
@@ -106,6 +119,9 @@ public class CreateTableDeParser extends AbstractDeParser<CreateTable> {
             if (createTable.isSelectParenthesis()) {
                 buffer.append(")");
             }
+        }
+        if (createTable.getSpannerInterleaveIn() != null) {
+            buffer.append(", ").append(createTable.getSpannerInterleaveIn());
         }
     }
 

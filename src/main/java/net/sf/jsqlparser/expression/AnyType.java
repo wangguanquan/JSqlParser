@@ -10,7 +10,9 @@
 package net.sf.jsqlparser.expression;
 
 public enum AnyType {
+    ANY, SOME, ALL;
 
-    ANY,
-    SOME
+    public static AnyType from(String type) {
+        return Enum.valueOf(AnyType.class, type.toUpperCase());
+    }
 }

@@ -9,40 +9,19 @@
  */
 package net.sf.jsqlparser.util;
 
-import java.io.StringReader;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.operators.arithmetic.Addition;
 import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
 import net.sf.jsqlparser.parser.CCJSqlParserManager;
 import net.sf.jsqlparser.statement.select.Select;
-import org.junit.After;
-import org.junit.AfterClass;
-import static org.junit.Assert.*;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import java.io.StringReader;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ConnectExpressionsVisitorTest {
-
-    public ConnectExpressionsVisitorTest() {
-    }
-
-    @BeforeClass
-    public static void setUpClass() {
-    }
-
-    @AfterClass
-    public static void tearDownClass() {
-    }
-
-    @Before
-    public void setUp() {
-    }
-
-    @After
-    public void tearDown() {
-    }
 
     private CCJSqlParserManager parserManager = new CCJSqlParserManager();
 
@@ -56,7 +35,7 @@ public class ConnectExpressionsVisitorTest {
                 return new Concat();
             }
         };
-        select.getSelectBody().accept(instance);
+        select.accept(instance);
 
         assertEquals("SELECT a || b || c AS expr FROM test", select.toString());
     }
@@ -71,7 +50,7 @@ public class ConnectExpressionsVisitorTest {
                 return new Addition();
             }
         };
-        select.getSelectBody().accept(instance);
+        select.accept(instance);
 
         assertEquals("SELECT a + b + c AS testexpr FROM test", select.toString());
     }

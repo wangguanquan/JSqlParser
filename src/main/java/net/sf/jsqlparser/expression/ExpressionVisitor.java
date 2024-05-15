@@ -9,18 +9,60 @@
  */
 package net.sf.jsqlparser.expression;
 
-import net.sf.jsqlparser.expression.operators.arithmetic.*;
+import net.sf.jsqlparser.expression.operators.arithmetic.Addition;
+import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseAnd;
+import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseLeftShift;
+import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseOr;
+import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseRightShift;
+import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseXor;
+import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
+import net.sf.jsqlparser.expression.operators.arithmetic.Division;
+import net.sf.jsqlparser.expression.operators.arithmetic.IntegerDivision;
+import net.sf.jsqlparser.expression.operators.arithmetic.Modulo;
+import net.sf.jsqlparser.expression.operators.arithmetic.Multiplication;
+import net.sf.jsqlparser.expression.operators.arithmetic.Subtraction;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
-import net.sf.jsqlparser.expression.operators.relational.*;
+import net.sf.jsqlparser.expression.operators.conditional.XorExpression;
+import net.sf.jsqlparser.expression.operators.relational.Between;
+import net.sf.jsqlparser.expression.operators.relational.ContainedBy;
+import net.sf.jsqlparser.expression.operators.relational.Contains;
+import net.sf.jsqlparser.expression.operators.relational.DoubleAnd;
+import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.ExcludesExpression;
+import net.sf.jsqlparser.expression.operators.relational.ExistsExpression;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.expression.operators.relational.FullTextSearch;
+import net.sf.jsqlparser.expression.operators.relational.GeometryDistance;
+import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
+import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
+import net.sf.jsqlparser.expression.operators.relational.InExpression;
+import net.sf.jsqlparser.expression.operators.relational.IncludesExpression;
+import net.sf.jsqlparser.expression.operators.relational.IsBooleanExpression;
+import net.sf.jsqlparser.expression.operators.relational.IsDistinctExpression;
+import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
+import net.sf.jsqlparser.expression.operators.relational.JsonOperator;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
+import net.sf.jsqlparser.expression.operators.relational.Matches;
+import net.sf.jsqlparser.expression.operators.relational.MemberOfExpression;
+import net.sf.jsqlparser.expression.operators.relational.MinorThan;
+import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
+import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.RegExpMatchOperator;
+import net.sf.jsqlparser.expression.operators.relational.SimilarToExpression;
+import net.sf.jsqlparser.expression.operators.relational.TSQLLeftJoin;
+import net.sf.jsqlparser.expression.operators.relational.TSQLRightJoin;
 import net.sf.jsqlparser.schema.Column;
-import net.sf.jsqlparser.statement.select.SubSelect;
+import net.sf.jsqlparser.statement.select.AllColumns;
+import net.sf.jsqlparser.statement.select.AllTableColumns;
+import net.sf.jsqlparser.statement.select.ParenthesedSelect;
+import net.sf.jsqlparser.statement.select.Select;
 
 public interface ExpressionVisitor {
 
-    public void visit(BitwiseRightShift aThis);
+    void visit(BitwiseRightShift aThis);
 
-    public void visit(BitwiseLeftShift aThis);
+    void visit(BitwiseLeftShift aThis);
 
     void visit(NullValue nullValue);
 
@@ -44,8 +86,6 @@ public interface ExpressionVisitor {
 
     void visit(TimestampValue timestampValue);
 
-    void visit(Parenthesis parenthesis);
-
     void visit(StringValue stringValue);
 
     void visit(Addition addition);
@@ -62,7 +102,11 @@ public interface ExpressionVisitor {
 
     void visit(OrExpression orExpression);
 
+    void visit(XorExpression orExpression);
+
     void visit(Between between);
+
+    void visit(OverlapsCondition overlapsCondition);
 
     void visit(EqualsTo equalsTo);
 
@@ -71,6 +115,10 @@ public interface ExpressionVisitor {
     void visit(GreaterThanEquals greaterThanEquals);
 
     void visit(InExpression inExpression);
+
+    void visit(IncludesExpression includesExpression);
+
+    void visit(ExcludesExpression excludesExpression);
 
     void visit(FullTextSearch fullTextSearch);
 
@@ -86,9 +134,15 @@ public interface ExpressionVisitor {
 
     void visit(NotEqualsTo notEqualsTo);
 
-    void visit(Column tableColumn);
+    void visit(DoubleAnd doubleAnd);
 
-    void visit(SubSelect subSelect);
+    void visit(Contains contains);
+
+    void visit(ContainedBy containedBy);
+
+    void visit(ParenthesedSelect selectBody);
+
+    void visit(Column tableColumn);
 
     void visit(CaseExpression caseExpression);
 
@@ -96,7 +150,7 @@ public interface ExpressionVisitor {
 
     void visit(ExistsExpression existsExpression);
 
-    void visit(AllComparisonExpression allComparisonExpression);
+    void visit(MemberOfExpression memberOfExpression);
 
     void visit(AnyComparisonExpression anyComparisonExpression);
 
@@ -128,8 +182,6 @@ public interface ExpressionVisitor {
 
     void visit(JsonOperator jsonExpr);
 
-    void visit(RegExpMySQLOperator regExpMySQLOperator);
-
     void visit(UserVariable var);
 
     void visit(NumericBind bind);
@@ -138,9 +190,11 @@ public interface ExpressionVisitor {
 
     void visit(MySQLGroupConcat groupConcat);
 
-    void visit(ValueListExpression valueList);
+    void visit(ExpressionList<?> expressionList);
 
-    void visit(RowConstructor rowConstructor);
+    void visit(RowConstructor<?> rowConstructor);
+
+    void visit(RowGetExpression rowGetExpression);
 
     void visit(OracleHint hint);
 
@@ -148,17 +202,55 @@ public interface ExpressionVisitor {
 
     void visit(DateTimeLiteralExpression literal);
 
-    public void visit(NotExpression aThis);
+    void visit(NotExpression aThis);
 
-    public void visit(NextValExpression aThis);
+    void visit(NextValExpression aThis);
 
-    public void visit(CollateExpression aThis);
+    void visit(CollateExpression aThis);
 
-    public void visit(SimilarToExpression aThis);
+    void visit(SimilarToExpression aThis);
 
-    public void visit(ArrayExpression aThis);
+    void visit(ArrayExpression aThis);
 
-    public void visit(VariableAssignment aThis);
+    void visit(ArrayConstructor aThis);
 
-    public void visit(XMLSerializeExpr aThis);
+    void visit(VariableAssignment aThis);
+
+    void visit(XMLSerializeExpr aThis);
+
+    void visit(TimezoneExpression aThis);
+
+    void visit(JsonAggregateFunction aThis);
+
+    void visit(JsonFunction aThis);
+
+    void visit(ConnectByRootOperator aThis);
+
+    void visit(OracleNamedFunctionParameter aThis);
+
+    void visit(AllColumns allColumns);
+
+    void visit(AllTableColumns allTableColumns);
+
+    void visit(AllValue allValue);
+
+    void visit(IsDistinctExpression isDistinctExpression);
+
+    void visit(GeometryDistance geometryDistance);
+
+    void visit(Select selectBody);
+
+    void visit(TranscodingFunction transcodingFunction);
+
+    void visit(TrimFunction trimFunction);
+
+    void visit(RangeExpression rangeExpression);
+
+    void visit(TSQLLeftJoin tsqlLeftJoin);
+
+    void visit(TSQLRightJoin tsqlRightJoin);
+
+    void visit(StructType structType);
+
+    void visit(LambdaExpression lambdaExpression);
 }

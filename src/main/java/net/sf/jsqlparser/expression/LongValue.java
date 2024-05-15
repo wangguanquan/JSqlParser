@@ -10,6 +10,8 @@
 package net.sf.jsqlparser.expression;
 
 import java.math.BigInteger;
+import java.util.Objects;
+
 import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
 
 /**
@@ -24,6 +26,9 @@ public class LongValue extends ASTNodeAccessImpl implements Expression {
     }
 
     public LongValue(final String value) {
+        if (value == null || value.length() == 0) {
+            throw new IllegalArgumentException("value can neither be null nor empty.");
+        }
         String val = value;
         if (val.charAt(0) == '+') {
             val = val.substring(1);
@@ -41,7 +46,7 @@ public class LongValue extends ASTNodeAccessImpl implements Expression {
     }
 
     public long getValue() {
-        return Long.valueOf(stringValue);
+        return Long.parseLong(stringValue);
     }
 
     public BigInteger getBigIntegerValue() {
@@ -73,5 +78,22 @@ public class LongValue extends ASTNodeAccessImpl implements Expression {
     public LongValue withStringValue(String stringValue) {
         this.setStringValue(stringValue);
         return this;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        LongValue longValue = (LongValue) o;
+        return stringValue.equals(longValue.stringValue);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(stringValue);
     }
 }

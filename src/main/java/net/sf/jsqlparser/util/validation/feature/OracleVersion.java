@@ -83,11 +83,14 @@ public enum OracleVersion implements Version {
                     // https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/SELECT.html
                     // see "for_update_clause"
                     Feature.selectForUpdate,
-                    Feature.selectForUpdateWait, Feature.selectForUpdateNoWait,
+                    Feature.selectForUpdateWait,
+                    Feature.selectForUpdateNoWait,
+                    Feature.selectForUpdateSkipLocked,
 
                     // https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/INSERT.html
                     Feature.insert,
                     Feature.insertValues,
+                    Feature.values,
                     // https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/INSERT.html
                     // see "single_table_insert"
                     Feature.insertFromSelect,
@@ -99,6 +102,7 @@ public enum OracleVersion implements Version {
 
                     // https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/DELETE.html
                     Feature.delete,
+                    Feature.deleteReturningExpressionList,
 
                     // https://www.oracletutorial.com/oracle-basics/oracle-truncate-table/
                     Feature.truncate,
@@ -168,7 +172,7 @@ public enum OracleVersion implements Version {
      * @param featuresSupported
      * @see #copy() to copy from previous version
      */
-    private OracleVersion(String versionString, Set<Feature> featuresSupported) {
+    OracleVersion(String versionString, Set<Feature> featuresSupported) {
         this(versionString, featuresSupported, Collections.emptySet());
     }
 
@@ -178,7 +182,7 @@ public enum OracleVersion implements Version {
      * @param unsupported
      * @see #copy() to copy from previous version
      */
-    private OracleVersion(String versionString, Set<Feature> featuresSupported, Set<Feature> unsupported) {
+    OracleVersion(String versionString, Set<Feature> featuresSupported, Set<Feature> unsupported) {
         this.versionString = versionString;
         this.features = featuresSupported;
         this.features.removeAll(unsupported);

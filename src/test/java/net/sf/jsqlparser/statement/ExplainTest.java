@@ -10,11 +10,10 @@
 package net.sf.jsqlparser.statement;
 
 import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import static net.sf.jsqlparser.test.TestUtils.*;
 import static org.assertj.core.api.Assertions.assertThat;
-
-import net.sf.jsqlparser.parser.CCJSqlParserUtil;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ExplainTest {
 
@@ -49,7 +48,7 @@ public class ExplainTest {
     }
 
     @Test
-    public void testMultiOptions_orderPreserved() throws  JSQLParserException {
+    public void testMultiOptions_orderPreserved() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed("EXPLAIN VERBOSE ANALYZE BUFFERS COSTS SELECT * FROM mytable");
     }
 
@@ -65,5 +64,8 @@ public class ExplainTest {
 
         ExplainStatement.Option buffers = explain.getOption(ExplainStatement.OptionType.BUFFERS);
         assertThat(buffers).isNotNull().extracting(ExplainStatement.Option::getValue).isEqualTo("FALSE");
+
+        explain = (ExplainStatement) CCJSqlParserUtil.parse("EXPLAIN SELECT * FROM mytable");
+        assertThat(explain.getOption(ExplainStatement.OptionType.ANALYZE)).isNull();
     }
 }

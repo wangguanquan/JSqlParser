@@ -12,20 +12,20 @@ package net.sf.jsqlparser.statement.simpleparsing;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.StringReader;
-
+import java.util.Objects;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserManager;
-import net.sf.jsqlparser.test.TestException;
 import net.sf.jsqlparser.statement.create.CreateTableTest;
-import org.junit.Test;
+import net.sf.jsqlparser.test.TestException;
+import org.junit.jupiter.api.Test;
 
 public class CCJSqlParserManagerTest {
 
     @Test
     public void testParse() throws Exception {
         CCJSqlParserManager parserManager = new CCJSqlParserManager();
-        BufferedReader in = new BufferedReader(new InputStreamReader(CreateTableTest.class.
-                getResourceAsStream("/simple_parsing.txt")));
+        BufferedReader in = new BufferedReader(new InputStreamReader(Objects.requireNonNull(CreateTableTest.class.
+                getResourceAsStream("/simple_parsing.txt"))));
 
         String statement = "";
         while (true) {
@@ -44,7 +44,7 @@ public class CCJSqlParserManagerTest {
 
     public static String getStatement(BufferedReader in) throws Exception {
         StringBuilder buf = new StringBuilder();
-        String line = null;
+        String line;
         while ((line = CCJSqlParserManagerTest.getLine(in)) != null) {
 
             if (line.length() == 0) {
@@ -65,11 +65,11 @@ public class CCJSqlParserManagerTest {
     }
 
     public static String getLine(BufferedReader in) throws Exception {
-        String line = null;
+        String line;
         while (true) {
             line = in.readLine();
             if (line != null) {
-                if ((line.length() < 2) || (line.length() >= 2) && !(line.charAt(0) == '/' && line.
+                if (line.length() < 2 || !(line.charAt(0) == '/' && line.
                         charAt(1) == '/')) {
                     break;
                 }

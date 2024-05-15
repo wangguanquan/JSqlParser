@@ -12,7 +12,6 @@ package net.sf.jsqlparser.util.validation.feature;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
-
 import net.sf.jsqlparser.parser.feature.Feature;
 
 /**
@@ -33,7 +32,8 @@ public enum PostgresqlVersion implements Version {
                     Feature.exprSimilarTo,
                     // https://www.postgresql.org/docs/current/sql-select.html
                     Feature.select,
-                    Feature.selectGroupBy, Feature.function, Feature.tableFunction, Feature.lateralSubSelect,
+                    Feature.selectGroupBy, Feature.function, Feature.tableFunction,
+                    Feature.lateralSubSelect,
                     Feature.selectHaving,
                     // https://www.postgresql.org/docs/current/queries-table-expressions.html#QUERIES-GROUPING-SETS
                     Feature.selectGroupByGroupingSets,
@@ -73,9 +73,13 @@ public enum PostgresqlVersion implements Version {
                     Feature.orderBy,
                     Feature.orderByNullOrdering,
 
+                    Feature.selectForNoKeyUpdate,
+                    Feature.selectForKeyShare,
+                    Feature.selectForShare,
                     Feature.selectForUpdate,
                     Feature.selectForUpdateOfTable,
                     Feature.selectForUpdateNoWait,
+                    Feature.selectForUpdateSkipLocked,
 
                     // https://www.postgresql.org/docs/current/queries-union.html
                     Feature.setOperation,
@@ -98,7 +102,7 @@ public enum PostgresqlVersion implements Version {
                     // https://www.postgresql.org/docs/current/sql-createindex.html
                     Feature.createIndex,
                     // https://www.postgresql.org/docs/current/sql-createtable.html
-                    Feature.createTable, Feature.createTableUnlogged, 
+                    Feature.createTable, Feature.createTableUnlogged,
                     Feature.createTableCreateOptionStrings, Feature.createTableTableOptionStrings,
                     Feature.createTableFromSelect, Feature.createTableIfNotExists,
                     // https://www.postgresql.org/docs/current/sql-createview.html
@@ -106,16 +110,24 @@ public enum PostgresqlVersion implements Version {
                     // https://www.postgresql.org/docs/current/sql-alterview.html
                     // Feature.alterView,
 
+                    // https://www.postgresql.org/docs/16/sql-refreshmaterializedview.html
+                    Feature.refreshMaterializedView,
+                    Feature.refreshMaterializedWithNoDataView,
+                    Feature.refreshMaterializedWithDataView,
+
                     // https://www.postgresql.org/docs/current/sql-insert.html
                     Feature.insert,
                     Feature.insertValues,
+                    Feature.values,
                     Feature.insertFromSelect,
-                    Feature.insertReturningAll, Feature.insertReturningExpressionList,
+                    Feature.insertReturningAll,
+                    Feature.insertReturningExpressionList,
                     // https://www.postgresql.org/docs/current/sql-update.html
                     Feature.update,
                     Feature.updateReturning,
                     // https://www.postgresql.org/docs/current/sql-delete.html
                     Feature.delete,
+                    Feature.deleteReturningExpressionList,
                     // https://www.postgresql.org/docs/current/sql-truncate.html
                     Feature.truncate,
 
@@ -144,10 +156,12 @@ public enum PostgresqlVersion implements Version {
                     Feature.grant,
                     // https://www.postgresql.org/docs/current/sql-set.html
                     Feature.set,
+                    // https://www.postgresql.org/docs/current/sql-reset.html
+                    Feature.reset,
                     // https://www.postgresql.org/docs/current/sql-commit.html
-                    Feature.commit
-                    )),
-    V11("11", V10.copy().getFeatures()), V12("12", V11.copy().getFeatures());
+                    Feature.commit)), V11("11", V10.copy().getFeatures()), V12("12",
+                            V11.copy().getFeatures()), V13("13",
+                                    V12.copy().getFeatures()), V14("14", V13.copy().getFeatures());
 
     private Set<Feature> features;
     private String versionString;
@@ -157,7 +171,7 @@ public enum PostgresqlVersion implements Version {
      * @param featuresSupported
      * @see #copy() to copy from previous version
      */
-    private PostgresqlVersion(String versionString, Set<Feature> featuresSupported) {
+    PostgresqlVersion(String versionString, Set<Feature> featuresSupported) {
         this(versionString, featuresSupported, Collections.emptySet());
     }
 
@@ -167,7 +181,8 @@ public enum PostgresqlVersion implements Version {
      * @param unsupported
      * @see #copy() to copy from previous version
      */
-    private PostgresqlVersion(String versionString, Set<Feature> featuresSupported, Set<Feature> unsupported) {
+    PostgresqlVersion(String versionString, Set<Feature> featuresSupported,
+            Set<Feature> unsupported) {
         this.versionString = versionString;
         this.features = featuresSupported;
         this.features.removeAll(unsupported);

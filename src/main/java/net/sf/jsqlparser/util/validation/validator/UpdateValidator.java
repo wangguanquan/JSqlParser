@@ -9,10 +9,7 @@
  */
 package net.sf.jsqlparser.util.validation.validator;
 
-import java.util.stream.Collectors;
-
 import net.sf.jsqlparser.parser.feature.Feature;
-import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import net.sf.jsqlparser.statement.update.Update;
 import net.sf.jsqlparser.util.validation.ValidationCapability;
 
@@ -31,9 +28,8 @@ public class UpdateValidator extends AbstractValidator<Update> {
             validateFeature(c, update.isUseSelect(), Feature.updateUseSelect);
             validateOptionalFeature(c, update.getOrderByElements(), Feature.updateOrderBy);
             validateOptionalFeature(c, update.getLimit(), Feature.updateLimit);
-            if (isNotEmpty(update.getReturningExpressionList()) || update.isReturningAllColumns()) {
-                validateFeature(c, Feature.updateReturning);
-            }
+            validateOptionalFeature(c, update.getReturningClause(),
+                    Feature.updateReturning);
         }
 
         validateOptionalFromItem(update.getTable());
@@ -43,7 +39,8 @@ public class UpdateValidator extends AbstractValidator<Update> {
 
         if (update.isUseSelect()) {
             validateOptionalExpressions(update.getColumns());
-            validateOptional(update.getSelect(), e -> e.getSelectBody().accept(getValidator(SelectValidator.class)));
+            validateOptional(update.getSelect(),
+                    e -> e.accept(getValidator(SelectValidator.class)));
         } else {
             validateOptionalExpressions(update.getColumns());
             validateOptionalExpressions(update.getExpressions());
@@ -62,9 +59,9 @@ public class UpdateValidator extends AbstractValidator<Update> {
             getValidator(LimitValidator.class).validate(update.getLimit());
         }
 
-        if (update.getReturningExpressionList() != null) {
-            validateOptionalExpressions(update.getReturningExpressionList().stream()
-                    .map(SelectExpressionItem::getExpression).collect(Collectors.toList()));
+        if (update.getReturningClause() != null) {
+            SelectValidator v = getValidator(SelectValidator.class);
+            update.getReturningClause().forEach(c -> c.accept(v));
         }
     }
 

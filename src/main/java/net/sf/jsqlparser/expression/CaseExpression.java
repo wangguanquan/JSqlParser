@@ -10,6 +10,7 @@
 package net.sf.jsqlparser.expression;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -20,32 +21,51 @@ import net.sf.jsqlparser.statement.select.PlainSelect;
 /**
  * CASE/WHEN expression.
  *
- * Syntax:  <code><pre>
+ * Syntax:
+ * 
+ * <pre>
+ * <code>
  * CASE
  * WHEN condition THEN expression
  * [WHEN condition THEN expression]...
  * [ELSE expression]
  * END
- * </pre></code>
+ * </code>
+ * </pre>
  *
- * <br/>
- * or <br/>
- * <br/>
+ * <br>
+ * or <br>
+ * <br>
  *
- * <code><pre>
+ * <pre>
+ * <code>
  * CASE expression
  * WHEN condition THEN expression
  * [WHEN condition THEN expression]...
  * [ELSE expression]
  * END
- * </pre></code>
+ * </code>
+ * </pre>
  *
  */
 public class CaseExpression extends ASTNodeAccessImpl implements Expression {
 
+    private boolean usingBrackets = false;
     private Expression switchExpression;
     private List<WhenClause> whenClauses;
     private Expression elseExpression;
+
+    public CaseExpression() {}
+
+    public CaseExpression(WhenClause... whenClauses) {
+        this.whenClauses = Arrays.asList(whenClauses);
+    }
+
+    public CaseExpression(Expression elseExpression, WhenClause... whenClauses) {
+        this.elseExpression = elseExpression;
+        this.whenClauses = Arrays.asList(whenClauses);
+    }
+
 
     @Override
     public void accept(ExpressionVisitor expressionVisitor) {
@@ -90,14 +110,20 @@ public class CaseExpression extends ASTNodeAccessImpl implements Expression {
 
     @Override
     public String toString() {
-        return "CASE " + ((switchExpression != null) ? switchExpression + " " : "")
+        return (usingBrackets ? "(" : "") + "CASE "
+                + ((switchExpression != null) ? switchExpression + " " : "")
                 + PlainSelect.getStringList(whenClauses, false, false) + " "
-                + ((elseExpression != null) ? "ELSE " + elseExpression + " " : "") + "END";
+                + ((elseExpression != null) ? "ELSE " + elseExpression + " " : "") + "END"
+                + (usingBrackets ? ")" : "");
     }
 
     public CaseExpression withSwitchExpression(Expression switchExpression) {
         this.setSwitchExpression(switchExpression);
         return this;
+    }
+
+    public CaseExpression withWhenClauses(WhenClause... whenClauses) {
+        return this.withWhenClauses(Arrays.asList(whenClauses));
     }
 
     public CaseExpression withWhenClauses(List<WhenClause> whenClauses) {
@@ -111,13 +137,15 @@ public class CaseExpression extends ASTNodeAccessImpl implements Expression {
     }
 
     public CaseExpression addWhenClauses(WhenClause... whenClauses) {
-        List<WhenClause> collection = Optional.ofNullable(getWhenClauses()).orElseGet(ArrayList::new);
+        List<WhenClause> collection =
+                Optional.ofNullable(getWhenClauses()).orElseGet(ArrayList::new);
         Collections.addAll(collection, whenClauses);
         return this.withWhenClauses(collection);
     }
 
     public CaseExpression addWhenClauses(Collection<? extends WhenClause> whenClauses) {
-        List<WhenClause> collection = Optional.ofNullable(getWhenClauses()).orElseGet(ArrayList::new);
+        List<WhenClause> collection =
+                Optional.ofNullable(getWhenClauses()).orElseGet(ArrayList::new);
         collection.addAll(whenClauses);
         return this.withWhenClauses(collection);
     }
@@ -128,5 +156,27 @@ public class CaseExpression extends ASTNodeAccessImpl implements Expression {
 
     public <E extends Expression> E getElseExpression(Class<E> type) {
         return type.cast(getElseExpression());
+    }
+
+    /**
+     * @return the usingBrackets
+     */
+    public boolean isUsingBrackets() {
+        return usingBrackets;
+    }
+
+    /**
+     * @param usingBrackets the usingBrackets to set
+     */
+    public void setUsingBrackets(boolean usingBrackets) {
+        this.usingBrackets = usingBrackets;
+    }
+
+    /**
+     * @param usingBrackets the usingBrackets to set
+     */
+    public CaseExpression withUsingBrackets(boolean usingBrackets) {
+        this.usingBrackets = usingBrackets;
+        return this;
     }
 }

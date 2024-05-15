@@ -28,6 +28,8 @@ public class DeleteValidator extends AbstractValidator<Delete> {
             validateOptionalFeature(c, delete.getJoins(), Feature.deleteJoin);
             validateOptionalFeature(c, delete.getLimit(), Feature.deleteLimit);
             validateOptionalFeature(c, delete.getOrderByElements(), Feature.deleteOrderBy);
+            validateOptionalFeature(c, delete.getReturningClause(),
+                    Feature.deleteReturningExpressionList);
         }
 
         SelectValidator v = getValidator(SelectValidator.class);
@@ -44,6 +46,10 @@ public class DeleteValidator extends AbstractValidator<Delete> {
 
         if (delete.getLimit() != null) {
             getValidator(LimitValidator.class).validate(delete.getLimit());
+        }
+
+        if (delete.getReturningClause() != null) {
+            delete.getReturningClause().forEach(c -> c.accept(v));
         }
 
     }

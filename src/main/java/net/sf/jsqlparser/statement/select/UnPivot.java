@@ -9,17 +9,21 @@
  */
 package net.sf.jsqlparser.statement.select;
 
+import net.sf.jsqlparser.expression.Alias;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
 
+import java.io.Serializable;
 import java.util.List;
 
-public class UnPivot {
+public class UnPivot implements Serializable {
 
     private boolean includeNulls = false;
     private boolean includeNullsSpecified = false;
-    private Column unpivotClause;
-    private List<Column> unpivotForClause;
-    private List<SelectExpressionItem> unpivotInClause;
+    private ExpressionList<Column> unpivotClause;
+    private ExpressionList<Column> unpivotForClause;
+    private List<SelectItem<?>> unpivotInClause;
+    private Alias alias;
 
     public void accept(PivotVisitor pivotVisitor) {
         pivotVisitor.visit(this);
@@ -38,11 +42,11 @@ public class UnPivot {
         return includeNullsSpecified;
     }
 
-    public Column getUnPivotClause() {
+    public List<Column> getUnPivotClause() {
         return unpivotClause;
     }
 
-    public void setUnPivotClause(Column unpivotClause) {
+    public void setUnPivotClause(ExpressionList<Column> unpivotClause) {
         this.unpivotClause = unpivotClause;
     }
 
@@ -50,15 +54,15 @@ public class UnPivot {
         return unpivotForClause;
     }
 
-    public void setUnPivotForClause(List<Column> forColumns) {
+    public void setUnPivotForClause(ExpressionList<Column> forColumns) {
         this.unpivotForClause = forColumns;
     }
 
-    public List<SelectExpressionItem> getUnPivotInClause() {
+    public List<SelectItem<?>> getUnPivotInClause() {
         return unpivotInClause;
     }
 
-    public void setUnPivotInClause(List<SelectExpressionItem> unpivotInClause) {
+    public void setUnPivotInClause(List<SelectItem<?>> unpivotInClause) {
         this.unpivotInClause = unpivotInClause;
     }
 
@@ -67,13 +71,24 @@ public class UnPivot {
         return "UNPIVOT"
                 + (includeNullsSpecified && includeNulls ? " INCLUDE NULLS" : "")
                 + (includeNullsSpecified && !includeNulls ? " EXCLUDE NULLS" : "")
-                + " (" + unpivotClause
-                + " FOR " + PlainSelect.getStringList(unpivotForClause, true, unpivotForClause != null && unpivotForClause.size() > 1)
-                + " IN " + PlainSelect.getStringList(unpivotInClause, true, true) + ")";
+                + " ("
+                + unpivotClause.toString()
+                + " FOR "
+                + unpivotForClause.toString()
+                + " IN " + PlainSelect.getStringList(unpivotInClause, true, true) + ")"
+                + (alias != null ? alias.toString() : "");
     }
 
     public UnPivot withIncludeNulls(boolean includeNulls) {
         this.setIncludeNulls(includeNulls);
         return this;
+    }
+
+    public Alias getAlias() {
+        return alias;
+    }
+
+    public void setAlias(Alias alias) {
+        this.alias = alias;
     }
 }

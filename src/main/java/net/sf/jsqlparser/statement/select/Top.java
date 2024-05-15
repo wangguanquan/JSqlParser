@@ -10,11 +10,15 @@
 package net.sf.jsqlparser.statement.select;
 
 import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
 
-public class Top {
+import java.io.Serializable;
+
+public class Top extends ASTNodeAccessImpl implements Serializable {
 
     private boolean hasParenthesis = false;
     private boolean isPercentage = false;
+    private boolean isWithTies = false;
     private Expression expression;
 
     public Expression getExpression() {
@@ -41,6 +45,14 @@ public class Top {
         this.isPercentage = percentage;
     }
 
+    public void setWithTies(boolean withTies) {
+        this.isWithTies = withTies;
+    }
+
+    public boolean isWithTies() {
+        return isWithTies;
+    }
+
     @Override
     public String toString() {
         String result = "TOP ";
@@ -59,6 +71,10 @@ public class Top {
             result += " PERCENT";
         }
 
+        if (isWithTies) {
+            result += " WITH TIES";
+        }
+
         return result;
     }
 
@@ -70,4 +86,5 @@ public class Top {
     public <E extends Expression> E getExpression(Class<E> type) {
         return type.cast(getExpression());
     }
+
 }

@@ -10,12 +10,12 @@
 package net.sf.jsqlparser.util.validation.validator;
 
 import java.util.Arrays;
-import org.junit.Test;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.feature.Feature;
 import net.sf.jsqlparser.util.validation.ValidationTestAsserts;
 import net.sf.jsqlparser.util.validation.feature.DatabaseType;
 import net.sf.jsqlparser.util.validation.feature.FeaturesAllowed;
+import org.junit.jupiter.api.Test;
 
 public class CreateViewValidatorTest extends ValidationTestAsserts {
 
@@ -37,18 +37,21 @@ public class CreateViewValidatorTest extends ValidationTestAsserts {
 
     @Test
     public void testValidateCreateViewMaterialized() throws JSQLParserException {
-        validateNoErrors("CREATE MATERIALIZED VIEW myview AS SELECT * FROM mytab", 1, DatabaseType.ORACLE);
+        validateNoErrors("CREATE MATERIALIZED VIEW myview AS SELECT * FROM mytab", 1,
+                DatabaseType.ORACLE);
     }
 
     @Test
     public void testValidateCreateOrReplaceView() throws JSQLParserException {
-        validateNoErrors("CREATE OR REPLACE VIEW myview AS SELECT * FROM mytab", 1, DatabaseType.ORACLE,
+        validateNoErrors("CREATE OR REPLACE VIEW myview AS SELECT * FROM mytab", 1,
+                DatabaseType.ORACLE,
                 DatabaseType.POSTGRESQL, DatabaseType.MYSQL, DatabaseType.MARIADB, DatabaseType.H2);
     }
 
     @Test
     public void testValidateCreateForceView() throws JSQLParserException {
-        validateNoErrors("CREATE FORCE VIEW myview AS SELECT * FROM mytab", 1, DatabaseType.ORACLE, DatabaseType.H2);
+        validateNoErrors("CREATE FORCE VIEW myview AS SELECT * FROM mytab", 1, DatabaseType.ORACLE,
+                DatabaseType.H2);
     }
 
     @Test
@@ -65,5 +68,13 @@ public class CreateViewValidatorTest extends ValidationTestAsserts {
                 "CREATE VIEW foo(\"BAR\") AS WITH temp AS (SELECT temp_bar FROM foobar) SELECT bar FROM temp")) {
             validateNoErrors(sql, 1, DatabaseType.DATABASES);
         }
+    }
+
+    @Test
+    public void testValidateCreateViewWithComment() throws JSQLParserException {
+        validateNoErrors(
+                "CREATE VIEW v14(c1 COMMENT 'comment1', c2 COMMENT 'comment2') COMMENT = 'view' AS SELECT c1, C2 FROM t1 WITH READ ONLY",
+                1,
+                DatabaseType.MYSQL, DatabaseType.MARIADB);
     }
 }

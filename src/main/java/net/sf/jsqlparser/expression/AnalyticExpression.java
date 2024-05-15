@@ -9,23 +9,25 @@
  */
 package net.sf.jsqlparser.expression;
 
-import java.util.List;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
+import net.sf.jsqlparser.statement.select.Limit;
 import net.sf.jsqlparser.statement.select.OrderByElement;
+
+import java.util.List;
+
+import static java.util.stream.Collectors.joining;
 
 /**
  * Analytic function. The name of the function is variable but the parameters following the special
- * analytic function path. e.g. row_number() over (order by test). Additional there can be an
- * expression for an analytical aggregate like sum(col) or the "all collumns" wildcard like
- * count(*).
+ * analytic function path. e.g. row_number() over (order by test). Additionally, there can be an
+ * expression for an analytical aggregate like sum(col) or the "all columns" wildcard like count(*).
  *
  * @author tw
  */
 public class AnalyticExpression extends ASTNodeAccessImpl implements Expression {
 
-    private final OrderByClause orderBy = new OrderByClause();
-    private final PartitionByClause partitionBy = new PartitionByClause();
+
     private String name;
     private Expression expression;
     private Expression offset;
@@ -34,35 +36,51 @@ public class AnalyticExpression extends ASTNodeAccessImpl implements Expression 
     private KeepExpression keep = null;
     private AnalyticType type = AnalyticType.OVER;
     private boolean distinct = false;
-    private boolean ignoreNulls = false;
+    private boolean unique = false;
+    private boolean ignoreNullsOutside = false; // IGNORE NULLS outside function parameters
     private Expression filterExpression = null;
-    private WindowElement windowElement = null;
+    private List<OrderByElement> funcOrderBy = null;
+    private String windowName = null; // refers to an external window definition (paritionBy,
+                                      // orderBy, windowElement)
+    private WindowDefinition windowDef = new WindowDefinition();
 
-    public AnalyticExpression() {
-    }
+    private Function.HavingClause havingClause;
+
+    private Function.NullHandling nullHandling = null;
+
+    private Limit limit = null;
+
+    public AnalyticExpression() {}
 
     public AnalyticExpression(Function function) {
-        name = function.getName();
-        allColumns = function.isAllColumns();
-        distinct = function.isDistinct();
+        this.name = String.join(" ", function.getMultipartName());
+        this.allColumns = function.isAllColumns();
+        this.distinct = function.isDistinct();
+        this.unique = function.isUnique();
 
-        ExpressionList list = function.getParameters();
+
+        ExpressionList<? extends Expression> list = function.getParameters();
         if (list != null) {
-            if (list.getExpressions().size() > 3) {
-                throw new IllegalArgumentException("function object not valid to initialize analytic expression");
+            if (list.size() > 3) {
+                throw new IllegalArgumentException(
+                        "function object not valid to initialize analytic expression");
             }
 
-            expression = list.getExpressions().get(0);
-            if (list.getExpressions().size() > 1) {
-                offset = list.getExpressions().get(1);
+            expression = list.get(0);
+            if (list.size() > 1) {
+                offset = list.get(1);
             }
-            if (list.getExpressions().size() > 2) {
-                defaultValue = list.getExpressions().get(2);
+            if (list.size() > 2) {
+                defaultValue = list.get(2);
             }
         }
-        ignoreNulls = function.isIgnoreNulls();
-        keep = function.getKeep();
+        this.havingClause = function.getHavingClause();
+        this.nullHandling = function.getNullHandling();
+        this.funcOrderBy = function.getOrderByElements();
+        this.limit = function.getLimit();
+        this.keep = function.getKeep();
     }
+
 
     @Override
     public void accept(ExpressionVisitor expressionVisitor) {
@@ -70,11 +88,11 @@ public class AnalyticExpression extends ASTNodeAccessImpl implements Expression 
     }
 
     public List<OrderByElement> getOrderByElements() {
-        return orderBy.getOrderByElements();
+        return windowDef.orderBy.getOrderByElements();
     }
 
     public void setOrderByElements(List<OrderByElement> orderByElements) {
-        orderBy.setOrderByElements(orderByElements);
+        windowDef.orderBy.setOrderByElements(orderByElements);
     }
 
     public KeepExpression getKeep() {
@@ -85,20 +103,21 @@ public class AnalyticExpression extends ASTNodeAccessImpl implements Expression 
         this.keep = keep;
     }
 
-    public ExpressionList getPartitionExpressionList() {
-        return partitionBy.getPartitionExpressionList();
+    public ExpressionList<?> getPartitionExpressionList() {
+        return windowDef.partitionBy.getPartitionExpressionList();
     }
 
-    public void setPartitionExpressionList(ExpressionList partitionExpressionList) {
+    public void setPartitionExpressionList(ExpressionList<?> partitionExpressionList) {
         setPartitionExpressionList(partitionExpressionList, false);
     }
 
-    public void setPartitionExpressionList(ExpressionList partitionExpressionList, boolean brackets) {
-        partitionBy.setPartitionExpressionList(partitionExpressionList, brackets);
+    public void setPartitionExpressionList(ExpressionList<?> partitionExpressionList,
+            boolean brackets) {
+        windowDef.partitionBy.setPartitionExpressionList(partitionExpressionList, brackets);
     }
 
     public boolean isPartitionByBrackets() {
-        return partitionBy.isBrackets();
+        return windowDef.partitionBy.isBrackets();
     }
 
     public String getName() {
@@ -134,11 +153,11 @@ public class AnalyticExpression extends ASTNodeAccessImpl implements Expression 
     }
 
     public WindowElement getWindowElement() {
-        return windowElement;
+        return windowDef.windowElement;
     }
 
     public void setWindowElement(WindowElement windowElement) {
-        this.windowElement = windowElement;
+        windowDef.windowElement = windowElement;
     }
 
     public AnalyticType getType() {
@@ -157,15 +176,84 @@ public class AnalyticExpression extends ASTNodeAccessImpl implements Expression 
         this.distinct = distinct;
     }
 
+    public boolean isUnique() {
+        return unique;
+    }
+
+    public void setUnique(boolean unique) {
+        this.unique = unique;
+    }
+
     public boolean isIgnoreNulls() {
-        return ignoreNulls;
+        return this.nullHandling == Function.NullHandling.IGNORE_NULLS;
     }
 
     public void setIgnoreNulls(boolean ignoreNulls) {
-        this.ignoreNulls = ignoreNulls;
+        this.nullHandling = ignoreNulls ? Function.NullHandling.IGNORE_NULLS : null;
+    }
+
+    public boolean isIgnoreNullsOutside() {
+        return ignoreNullsOutside;
+    }
+
+    public void setIgnoreNullsOutside(boolean ignoreNullsOutside) {
+        this.ignoreNullsOutside = ignoreNullsOutside;
+    }
+
+    public String getWindowName() {
+        return windowName;
+    }
+
+    public void setWindowName(String windowName) {
+        this.windowName = windowName;
+    }
+
+    public WindowDefinition getWindowDefinition() {
+        return windowDef;
+    }
+
+    public void setWindowDefinition(WindowDefinition windowDef) {
+        this.windowDef = windowDef;
+    }
+
+
+    public Function.HavingClause getHavingClause() {
+        return havingClause;
+    }
+
+    public AnalyticExpression setHavingClause(Function.HavingClause havingClause) {
+        this.havingClause = havingClause;
+        return this;
+    }
+
+    public AnalyticExpression setHavingClause(String havingType, Expression expression) {
+        this.havingClause = new Function.HavingClause(
+                Function.HavingClause.HavingType.valueOf(havingType.trim().toUpperCase()),
+                expression);
+        return this;
+    }
+
+    public Function.NullHandling getNullHandling() {
+        return nullHandling;
+    }
+
+    public AnalyticExpression setNullHandling(Function.NullHandling nullHandling) {
+        this.nullHandling = nullHandling;
+        return this;
+    }
+
+    public Limit getLimit() {
+        return limit;
+    }
+
+    public AnalyticExpression setLimit(Limit limit) {
+        this.limit = limit;
+        return this;
     }
 
     @Override
+    @SuppressWarnings({"PMD.CyclomaticComplexity", "PMD.NPathComplexity",
+            "PMD.MissingBreakInSwitch"})
     public String toString() {
         StringBuilder b = new StringBuilder();
 
@@ -174,30 +262,63 @@ public class AnalyticExpression extends ASTNodeAccessImpl implements Expression 
             b.append("DISTINCT ");
         }
         if (expression != null) {
-            b.append(expression.toString());
+            b.append(expression);
             if (offset != null) {
-                b.append(", ").append(offset.toString());
+                b.append(", ").append(offset);
                 if (defaultValue != null) {
-                    b.append(", ").append(defaultValue.toString());
+                    b.append(", ").append(defaultValue);
                 }
             }
         } else if (isAllColumns()) {
             b.append("*");
         }
-        if (isIgnoreNulls()) {
-            b.append(" IGNORE NULLS");
+
+        if (havingClause != null) {
+            havingClause.appendTo(b);
         }
+
+        if (nullHandling != null && !ignoreNullsOutside) {
+            switch (nullHandling) {
+                case IGNORE_NULLS:
+                    b.append(" IGNORE NULLS");
+                    break;
+                case RESPECT_NULLS:
+                    b.append(" RESPECT NULLS");
+                    break;
+            }
+        }
+
+        if (funcOrderBy != null) {
+            b.append(" ORDER BY ");
+            b.append(funcOrderBy.stream().map(OrderByElement::toString).collect(joining(", ")));
+        }
+
+        if (limit != null) {
+            b.append(limit);
+        }
+
         b.append(") ");
         if (keep != null) {
-            b.append(keep.toString()).append(" ");
+            b.append(keep).append(" ");
         }
 
         if (filterExpression != null) {
             b.append("FILTER (WHERE ");
-            b.append(filterExpression.toString());
+            b.append(filterExpression);
             b.append(")");
             if (type != AnalyticType.FILTER_ONLY) {
                 b.append(" ");
+            }
+        }
+
+        if (nullHandling != null && ignoreNullsOutside) {
+            switch (nullHandling) {
+                case IGNORE_NULLS:
+                    b.append(" IGNORE NULLS ");
+                    break;
+                case RESPECT_NULLS:
+                    b.append(" RESPECT NULLS ");
+                    break;
             }
         }
 
@@ -207,22 +328,23 @@ public class AnalyticExpression extends ASTNodeAccessImpl implements Expression 
             case WITHIN_GROUP:
                 b.append("WITHIN GROUP");
                 break;
+            case WITHIN_GROUP_OVER:
+                b.append("WITHIN GROUP (");
+                windowDef.orderBy.toStringOrderByElements(b);
+                b.append(") OVER (");
+                windowDef.partitionBy.toStringPartitionBy(b);
+                b.append(")");
+                break;
             default:
                 b.append("OVER");
         }
-        b.append(" (");
 
-        partitionBy.toStringPartitionBy(b);
-        orderBy.toStringOrderByElements(b);
-
-        if (windowElement != null) {
-            if (orderBy.getOrderByElements() != null) {
-                b.append(' ');
-            }
-            b.append(windowElement);
+        if (windowName != null) {
+            b.append(" ").append(windowName);
+        } else if (type != AnalyticType.WITHIN_GROUP_OVER) {
+            b.append(" ");
+            b.append(windowDef.toString());
         }
-
-        b.append(")");
 
         return b.toString();
     }
@@ -283,6 +405,11 @@ public class AnalyticExpression extends ASTNodeAccessImpl implements Expression 
         return this;
     }
 
+    public AnalyticExpression withUnique(boolean unique) {
+        this.setUnique(unique);
+        return this;
+    }
+
     public AnalyticExpression withIgnoreNulls(boolean ignoreNulls) {
         this.setIgnoreNulls(ignoreNulls);
         return this;
@@ -312,5 +439,13 @@ public class AnalyticExpression extends ASTNodeAccessImpl implements Expression 
 
     public <E extends Expression> E getFilterExpression(Class<E> type) {
         return type.cast(getFilterExpression());
+    }
+
+    public List<OrderByElement> getFuncOrderBy() {
+        return funcOrderBy;
+    }
+
+    public void setFuncOrderBy(List<OrderByElement> funcOrderBy) {
+        this.funcOrderBy = funcOrderBy;
     }
 }
